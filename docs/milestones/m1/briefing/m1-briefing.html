@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dshd 后端 · M1 工程与验收基础 · 里程碑交付简报</title>
+  <style>
+    :root { --ink:#172033; --muted:#596579; --line:#d9e0ea; --paper:#fff; --wash:#f4f7fb; --navy:#173b67; --green:#176b4b; --green-bg:#e8f6ef; --amber:#8a5a00; --amber-bg:#fff5d9; --red:#9b3535; --red-bg:#fff0ef; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:var(--wash); font:15px/1.65 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif; }
+    main { width:min(1180px,calc(100% - 32px)); margin:28px auto; background:var(--paper); box-shadow:0 10px 35px #173b6714; }
+    header { padding:44px 48px 36px; color:white; background:linear-gradient(135deg,#102b4d,#235b8f); }
+    header p { margin:5px 0; color:#dceafb; } h1 { margin:6px 0 14px; font-size:34px; line-height:1.25; }
+    .eyebrow { letter-spacing:.12em; text-transform:uppercase; font-weight:700; }
+    .badge { display:inline-block; margin-top:15px; padding:7px 13px; border:1px solid #9de0c1; border-radius:999px; color:#dff8eb; background:#0e6b4d; font-weight:800; }
+    section { padding:31px 48px; border-bottom:1px solid var(--line); } h2 { margin:0 0 15px; color:var(--navy); font-size:24px; } h3 { margin:22px 0 8px; font-size:18px; }
+    p { margin:8px 0 13px; } .lead { font-size:17px; } .note { padding:14px 17px; border-left:4px solid var(--navy); background:#eef5fc; }
+    table { width:100%; border-collapse:collapse; margin:15px 0 8px; font-size:14px; } th,td { padding:10px 11px; border:1px solid var(--line); vertical-align:top; text-align:left; } th { color:#213c5c; background:#edf3f9; }
+    code { padding:.1em .35em; border-radius:4px; background:#edf1f6; font:13px/1.5 Consolas,monospace; overflow-wrap:anywhere; }
+    .status { white-space:nowrap; font-weight:800; } .pass { color:var(--green); background:var(--green-bg); } .pending { color:var(--amber); background:var(--amber-bg); } .blocked { color:var(--red); background:var(--red-bg); }
+    .status span { display:inline-block; padding:2px 7px; border-radius:5px; } ul,ol { padding-left:23px; } li { margin:5px 0; }
+    .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0; } .card { padding:15px; border:1px solid var(--line); border-radius:8px; background:#fbfcfe; } .card strong { display:block; color:var(--navy); font-size:17px; }
+    footer { padding:22px 48px; color:var(--muted); background:#f2f5f9; } @media(max-width:800px){ main{width:100%;margin:0} header,section,footer{padding:25px 20px}.cards{grid-template-columns:1fr} table{display:block;overflow-x:auto} }
+    @media print { body{background:white} main{width:100%;margin:0;box-shadow:none} section{break-inside:avoid} }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">里程碑交付简报</div>
+    <h1>dshd 后端 · M1「工程与验收基础」</h1>
+    <p>日期：2026-08-29　｜　面向：人类验收人　｜　范围：产品工程与验收工具地基</p>
+    <div class="badge">通过独立验收</div>
+  </header>
+
+  <section>
+    <h2>执行摘要</h2>
+    <p class="lead">M1 已完成实现迭代与三轮独立评审。第三轮报告 <code>docs/milestones/m1/reviews/acceptance-r3.md</code> 的正式结论为“通过独立验收”：本地可验证的工程骨架、契约生成与校验链、四类验收资产和真实性门禁均已通过。该结论不掩盖外部证据缺口：GitHub Actions 因账户计费限制无法启动，AC-01/VM-01 保持 <strong>BLOCKED-EXTERNAL</strong>；Docker build/smoke 尚无原始运行证据，AC-04/VM-04 保持 <strong>PENDING</strong>。</p>
+    <div class="cards">
+      <div class="card"><strong>双重闸门</strong>机械验收 + 独立代码评审</div>
+      <div class="card"><strong>契约基线</strong>10 paths / 42 schemas</div>
+      <div class="card"><strong>诚实向量口径</strong>declared=66 / executed=0</div>
+      <div class="card"><strong>冻结边界</strong><code>dsh/</code> 与契约零改动</div>
+    </div>
+    <p class="note">验收语义边界：M1 证明的是“工程与验收工具地基可运行”，不是业务功能完成。66 个一致性向量仍为 <code>declared=66 executed=0</code>；fake Harness、reference stub 的业务路径仍明确返回 <code>NOT_IMPLEMENTED</code>，不得解释为产品行为通过。</p>
+  </section>
+
+  <section>
+    <h2>一、里程碑目标达成总览</h2>
+    <p>下表严格采用 R3 的最终重估口径。PASS 表示已有本地可复核实现与证据；PENDING 表示定义或静态边界存在但缺真实运行证据；BLOCKED-EXTERNAL 表示账户侧外部条件阻止证据形成，不能用本地结果替代远端同一次完整运行。</p>
+    <table>
+      <thead><tr><th>ID</th><th>状态</th><th>判据</th><th>证据指引与判断</th></tr></thead>
+      <tbody>
+        <tr><td>AC-01</td><td class="status"><span class="blocked">BLOCKED-EXTERNAL</span></td><td>干净检出 CI 一次通过</td><td>GitHub Actions 账户计费造成 startup failure；远端完整 run 尚未形成，不能将本地拼接结果转正。</td></tr>
+        <tr><td>AC-02</td><td class="status"><span class="pass">PASS</span></td><td>生成链一致且人为 drift 会失败</td><td><code>contract-gen --check</code> 输出 <code>ZERO_DRIFT files=4</code>；真实损毁门拒绝变更并恢复；42 schema 由冻结 OpenAPI 结构递归生成。</td></tr>
+        <tr><td>AC-03</td><td class="status"><span class="pass">PASS</span></td><td>CI 定义执行契约验证器</td><td>workflow 调用真实入口；R3 在临时 Windows Python 3.12 venv 独立复跑，得到 10 paths、42 schemas、66 declared、0 executed。远端执行仍随 AC-01 受阻。</td></tr>
+        <tr><td>AC-04</td><td class="status"><span class="pending">PENDING</span></td><td>Docker skeleton 构建并确定启动</td><td>Dockerfile 静态结构具备双 builder/runtime closure，但本机无 Docker、远端 CI 受阻，无 build/smoke 原始证据。</td></tr>
+        <tr><td>AC-05</td><td class="status"><span class="pass">PASS</span></td><td>工具链与依赖闭包锁定</td><td>Rust 1.89.0、Cargo 1.89.0、Linux target、<code>Cargo.lock</code> 与发布摘要机制已有记录并通过锁定构建测试。</td></tr>
+        <tr><td>AC-06</td><td class="status"><span class="pass">PASS</span></td><td>四资产有版本、自检与诚实统计</td><td>stub 逐项探测 13 条路由；runner 输出 <code>declared=66 executed=0</code>；fake loopback 自检；capability 精确校验 34 项。</td></tr>
+        <tr><td>AC-07</td><td class="status"><span class="pass">PASS</span></td><td>冻结边界与唯一契约</td><td><code>dsh/</code>、冻结契约和冻结计划零改动；未发现第二套业务 DTO；未实现行为明确为 NOT_IMPLEMENTED。</td></tr>
+        <tr><td>VM-01</td><td class="status"><span class="blocked">BLOCKED-EXTERNAL</span></td><td>新 clone、无缓存完整 CI</td><td>同 AC-01：账户计费外阻使同一次远端 pipeline 无法形成。</td></tr>
+        <tr><td>VM-02</td><td class="status"><span class="pass">PASS</span></td><td>契约验证器及机器报告</td><td>临时原生 venv 中 <code>validate_contracts.py</code> exit 0，输出 Contract validation: PASS、10/42/66 与 179 local refs。</td></tr>
+        <tr><td>VM-03</td><td class="status"><span class="pass">PASS</span></td><td>四资产版本、自检、清单</td><td>reference-stub 连续三次 <code>route_probe=13/13 PASS</code>；fake/runner 自检 exit 0；capability 负测进入 workspace tests。</td></tr>
+        <tr><td>VM-04</td><td class="status"><span class="pending">PENDING</span></td><td>构建并启动 skeleton 镜像</td><td>缺少 Docker build/smoke 原始执行记录，不把静态审查提升为运行 PASS。</td></tr>
+        <tr><td>VM-05</td><td class="status"><span class="pass">PASS</span></td><td>diff、工具链与摘要复核</td><td>regen/drift 恢复后受管文件无漂移；冻结输入未改；工具链与 lock 摘要可追踪。</td></tr>
+        <tr><td>VM-06</td><td class="status"><span class="pass">PASS</span></td><td>出口记录与诚实声明</td><td><code>exit-record.md</code> 清楚区分声明与执行，外部 CI/Docker 没有被误写为 PASS。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>二、交付物清单与验收状态</h2>
+    <p>D1～D9 对应 <code>docs/milestones/m1/overall-plan.md</code> 与冻结六要素。D5 的代码结构已交付，但其真实镜像 build/smoke 证据仍按 PENDING 管理；其余交付物按 R3 本地独立验收证据签核。</p>
+    <table>
+      <thead><tr><th>ID</th><th>交付物</th><th>位置</th><th>验收方式</th><th>状态</th></tr></thead>
+      <tbody>
+        <tr><td>D1</td><td>Cargo workspace 与模块/测试分层骨架</td><td><code>Cargo.toml</code>、<code>crates/dshd</code>、<code>dshd-core</code>、<code>dshd-contract</code>、<code>dshd-adapters</code>、<code>canonical-json</code></td><td>workspace check/test；依赖方向及无越界业务实现审查</td><td class="status"><span class="pass">PASS</span></td></tr>
+        <tr><td>D2</td><td>固定 Rust 工具链、lockfile 与发布摘要</td><td><code>rust-toolchain.toml</code>、<code>Cargo.lock</code>、<code>scripts/release-manifest.ps1</code></td><td><code>--locked</code> 构建测试；版本、target 与 SHA-256 记录复核</td><td class="status"><span class="pass">PASS</span></td></tr>
+        <tr><td>D3</td><td>OpenAPI→Rust 强类型生成链、Draft 2020-12/JCS 接线与 drift gate</td><td><code>tools/contract-gen</code>、<code>crates/dshd-contract/src/generated/</code></td><td>check/regen 确定性、2/2 golden、真实 drift 负向门、字段级抽查</td><td class="status"><span class="pass">PASS</span></td></tr>
+        <tr><td>D4</td><td>CI 流水线</td><td><code>.github/workflows/m1.yml</code></td><td>八个 job、validator、contract-gen、fmt/clippy/check/test/资产入口静态核验；本地入口复跑</td><td class="status"><span class="pass">PASS（定义/本地）</span></td></tr>
+        <tr><td>D5</td><td>Docker 双 builder skeleton 与最小 runtime closure</td><td><code>Dockerfile</code></td><td>静态检查已通过；仍须在可用 Docker 环境 build 并 smoke</td><td class="status"><span class="pending">PENDING（运行证据）</span></td></tr>
+        <tr><td>D6</td><td>可控异常注入 fake Harness 骨架</td><td><code>tools/fake-harness</code></td><td>真实 loopback、token/cookie/authority、HTTP 成功与拒绝探针；WS 明示 NOT_IMPLEMENTED</td><td class="status"><span class="pass">PASS</span></td></tr>
+        <tr><td>D7</td><td>中央 reference stub 双向骨架</td><td><code>tools/reference-stub</code></td><td>单一 ROUTES registry 驱动分发/计数/逐项探测；连续三次 route_probe=13/13</td><td class="status"><span class="pass">PASS</span></td></tr>
+        <tr><td>D8</td><td>66-vector runner 与逐项 manifest</td><td><code>tools/conformance-runner</code>、<code>vectors.csv</code></td><td>精确 ID/分组校验、损毁副本负测、文本/JSON/JUnit 统一输出</td><td class="status"><span class="pass">PASS</span></td></tr>
+        <tr><td>D9</td><td>能力覆盖报告工具与精确 inventory</td><td><code>tools/capability-report</code>、<code>inventory.csv</code></td><td>34 个 ID/kind 精确集合、status/evidence 规则、未知与错配 fail-closed</td><td class="status"><span class="pass">PASS</span></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>三、实现与迭代史：双闸门如何逼近真实实现</h2>
+    <h3>迭代 1：骨架建立，机械通过不等于语义通过</h3>
+    <p>提交 <code>ab47138</code> 建立初版 workspace、工具骨架、CI 与 Docker skeleton。第一轮独立评审结论为<strong>未通过独立验收</strong>，列出 F01～F12。核心问题包括：冻结 YAML 仅被嵌入而未生成 42 个类型；所谓 Draft 校验只是字符串判断；drift 测试是同函数自等；66 manifest 只有分组计数；runner 自检不读取真实清单；fake/stub 只是打印骨架文字；capability 工具无精确 inventory；CI、runtime closure、target 和出口签核也存在缺口。R1 说明：命令能 exit 0，只代表现有断言成立，不能代替冻结验收语义。</p>
+    <h3>迭代 2：把占位门禁改为真实负向门</h3>
+    <p><code>f0ea823</code> 与 <code>a4116af</code> 针对 F01～F12 引入固定版本 contract-gen、真实生成输出比较、Draft 2020-12 与标准 JCS 库、逐行 66 manifest、loopback fake/stub、34 项 inventory、拆分 CI jobs、runtime closure 和 Linux target。尤其 drift-real、manifest/inventory 损毁副本让门禁具备“真负向”能力：错误资产必须非零退出并恢复工作树。</p>
+    <p>R2 仍给出<strong>未通过独立验收</strong>，新增 F13～F15：42 个生成名称仍是透明 <code>serde_json::Value</code> 包装；stub 实际只覆盖少数请求却固定声称 13 路由；capability 只按前缀计数，同数量替换为未知 ID 仍可能通过。这一轮揭示了“看起来真实”的另一类假阳性。</p>
+    <h3>迭代 3：由权威输入派生并精确 fail-closed</h3>
+    <p><code>3f6791b</code>、<code>137c618</code>、<code>790ea32</code> 关闭 F13～F15。生成器递归映射 object properties、required/optional、enum、oneOf、allOf、<code>$ref</code>、array 与 additionalProperties，输出可编译强类型；golden 测试证明属性、枚举、联合变化会改变生成物。reference stub 用唯一 <code>ROUTES</code> registry 同时驱动服务分发、客户端 probe 和计数，逐条验证 13 路由并要求明确 NOT_IMPLEMENTED。capability-report 将 WUI-001..021、DSHD-001..004、OUT-001..009 构成精确集合，并拒绝未知、缺失、错 kind、非法 status 与证据不一致。</p>
+    <h3>迭代 4：Windows socket 稳定性收敛</h3>
+    <p><code>faeab2f</code> 修复 reference-stub/fake-harness 在 Windows 回环自检中的 WSA 10004/10053 等瞬时错误与关闭撕裂。连接采用最多 3 次有界尝试和 25/50ms 退避；响应以 Content-Length 判定完整；listener 以非阻塞循环和完成信号退出，随后 join；bind/accept/connect/read/write/shutdown 均显式传播错误。结果从“遇到瞬时 IO 可能恐慌”收敛为“有界重试、完整响应判断、优雅关闭”。</p>
+    <h3>独立 R3：四维度全部 PASS</h3>
+    <p><code>c1c25ee</code> 记录第三轮独立评审。评审逐项对质实现、代码与真实复跑，确认 R2 三项缺口和 Windows 稳定性缺陷关闭，且未新增 F16。由此形成最终结论“通过独立验收”。整个过程体现双闸门价值：机械门负责可重复执行和真负向，独立评审负责识别断言与冻结语义之间的差距，两者缺一不可。</p>
+  </section>
+
+  <section>
+    <h2>四、真实测试证据摘要</h2>
+    <h3>五模式机械验收</h3>
+    <table>
+      <thead><tr><th>模式</th><th>证明内容</th><th>关键边界</th></tr></thead>
+      <tbody>
+        <tr><td><code>structural</code></td><td>提交范围、冻结摘要、目录结构、关键实现与诚实标记符合约束。</td><td>只做结构/静态门，不替代运行测试。</td></tr>
+        <tr><td><code>cargo-check</code></td><td>workspace/all-targets 在锁定依赖下可编译检查。</td><td>证明类型与装配，不证明行为向量。</td></tr>
+        <tr><td><code>cargo-test</code></td><td>workspace 单元、contract、golden、drift 等测试真实通过。</td><td>测试通过范围由现有用例限定。</td></tr>
+        <tr><td><code>drift-real</code></td><td>先确认零 drift，再损毁真实受管输出，要求同一 gate 失败，恢复后复检成功。</td><td>这是“错误必须失败”的真负向门，不是哈希自洽。</td></tr>
+        <tr><td><code>selftests-real</code></td><td>四资产版本/自检、manifest/inventory 损毁副本负测及真实 loopback 探针。</td><td>资产自检不等于 dshd 业务行为通过。</td></tr>
+      </tbody>
+    </table>
+    <h3>R3 独立复跑</h3>
+    <ul>
+      <li><code>cargo test --workspace --locked</code> exit 0：capability-report 3/3、contract-gen golden 2/2、runner 1/1、dshd-contract 2/2、drift gate 1/1，子进程报告 <code>ZERO_DRIFT files=4</code>。</li>
+      <li><code>contract-gen --check</code> 报告零 drift；<code>--regen</code> 报告 <code>schemas=42 generator=m1-controlled-generator/0.3.0</code>，随后无受管文件变化。</li>
+      <li>reference-stub 自检连续 3 次 exit 0，每次均为 <code>route_probe=13/13 PASS</code>、<code>behavior=NOT_IMPLEMENTED vectors_executed=0</code>，无 panic。</li>
+      <li>fake-harness 自检含真实 loopback HTTP、authority cookie、fixtures 和拒绝探针；conformance-runner 输出 <code>declared=66 executed=0 passed=0 failed=0</code>。</li>
+      <li>临时原生 Windows Python 3.12 venv 运行 <code>validate_contracts.py</code> exit 0：10 paths、42 schemas、179 local refs、66 declared、0 executed。</li>
+    </ul>
+    <p class="note">冻结边界复核：<code>dsh/</code> 零改动；冻结契约与计划零改动；66 向量仍为 declared=66、executed=0；业务路径继续显式 NOT_IMPLEMENTED；没有 WUI parity 双证据，也没有将 stub/fake 自检包装成产品验收。</p>
+  </section>
+
+  <section>
+    <h2>五、代码评审摘要</h2>
+    <table>
+      <thead><tr><th>R3 维度</th><th>结论</th><th>要点</th></tr></thead>
+      <tbody>
+        <tr><td>阶段目标达成</td><td class="status"><span class="pass">PASS</span></td><td>本地可验证 AC 已满足；CI 外阻与 Docker 缺证据按 BLOCKED-EXTERNAL/PENDING 保留，不计作实现缺陷，也不虚假转正。</td></tr>
+        <tr><td>交付物与计划符合度</td><td class="status"><span class="pass">PASS</span></td><td>D3、D7、D9 的语义缺口已关闭；所有工具继续遵守 declared=66 executed=0 与 NOT_IMPLEMENTED 的 M1 边界。</td></tr>
+        <tr><td>代码评审</td><td class="status"><span class="pass">PASS</span></td><td>强类型生成、路由 registry、精确 capability 集合均由单一权威输入派生并配正负测试；socket 路径采用有界重试、完整响应判断和显式错误传播。</td></tr>
+        <tr><td>真实测试复跑</td><td class="status"><span class="pass">PASS</span></td><td>workspace tests、golden、check/regen/drift、三次 stub、fake/runner 和临时 venv validator 全部真实 exit 0。</td></tr>
+      </tbody>
+    </table>
+    <p>评审同时指出谨慎边界：三次 stub 稳定运行不等于穷举所有 Windows 内核时序，缺陷关闭还依赖代码中对 WSA 10004/10053 的明确分类、最多三次重试、完成信号和瞬时 IO 路径无 <code>unwrap()/expect()</code>。这是基于运行与静态因果证据的组合判断。</p>
+  </section>
+
+  <section>
+    <h2>六、遗留事项与下一步</h2>
+    <ol>
+      <li><strong>解除 CI 外阻并转正：</strong>由账户所有者处理 GitHub Actions 计费限制；恢复后从新 clone、无缓存执行同一次完整 pipeline，保存 run URL/ID 与原始日志，再将 AC-01/VM-01 从 BLOCKED-EXTERNAL 重新评估。</li>
+      <li><strong>补齐 Docker 原始证据：</strong>在 CI 或本机 Docker 可用后执行 skeleton build 与 smoke，记录 image/build log、入口确定行为和 runtime closure 边界，再评估 AC-04/VM-04 的 PENDING。</li>
+      <li><strong>时点要求：</strong>上述两项属于外部依赖和证据缺口，不阻塞 M1 工程骨架的本地独立验收结论，但应在进入 M2 的稳定交付节奏前解决，且不得以静态检查替代运行证据。</li>
+      <li><strong>M2 展望：</strong>在现有 driver、manifest、生成契约和冻结边界内增量实现配置、身份、状态协调、进程守护与 Harness 生命周期，不改变 M1 工具的诚实统计语义。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>七、工件索引与验收命令</h2>
+    <h3>关键提交</h3>
+    <table>
+      <thead><tr><th>阶段</th><th>提交</th><th>内容</th></tr></thead>
+      <tbody>
+        <tr><td>冻结实现基线</td><td><code>85be951</code></td><td>M1 实现前基线（完整记录见 T01）。</td></tr>
+        <tr><td>迭代 1</td><td><code>ab47138</code></td><td>初版工程与验收骨架。</td></tr>
+        <tr><td>迭代 2</td><td><code>f0ea823</code>、<code>a4116af</code></td><td>R1 发现修复与证据记录。</td></tr>
+        <tr><td>迭代 3</td><td><code>3f6791b</code>、<code>137c618</code>、<code>790ea32</code></td><td>F13/F14/F15 修复、生成格式稳定与报告整理。</td></tr>
+        <tr><td>迭代 4</td><td><code>faeab2f</code></td><td>Windows socket 自检稳定性修复。</td></tr>
+        <tr><td>R3 评审</td><td><code>c1c25ee</code></td><td>第三轮独立验收通过记录。</td></tr>
+      </tbody>
+    </table>
+    <h3>报告与评审路径</h3>
+    <ul>
+      <li>权威范围：<code>docs/milestones/m1/six-elements.md</code>、<code>overall-plan.md</code>、<code>detailed-plan.md</code>、<code>exit-record.md</code>。</li>
+      <li>独立评审：<code>docs/milestones/m1/reviews/acceptance-r1.md</code>、<code>acceptance-r2.md</code>、<code>acceptance-r3.md</code>。</li>
+      <li>实现报告：<code>docs/milestones/m1/reports/t01-baseline-verification.md</code>、<code>t02-generation-acceptance-matrix.md</code>、<code>t03-t04-probe.md</code>、<code>t05-controlled-generator-decision.md</code>、<code>t23-clean-rebuild.md</code>。</li>
+      <li>修复记录：<code>docs/milestones/m1/reports/iteration-r2-fixes.md</code>、<code>iteration-r3-fixes.md</code>、<code>iteration-r4-fixes.md</code>。</li>
+    </ul>
+    <h3>命令一览（均为已有记录，不在本简报任务中新跑 Rust）</h3>
+    <ul>
+      <li><code>cargo check --workspace --all-targets --locked</code></li>
+      <li><code>cargo test --workspace --locked</code></li>
+      <li><code>cargo run --locked -p contract-gen -- --check</code> / <code>--regen</code></li>
+      <li><code>cargo run --locked -p reference-stub -- --self-test</code></li>
+      <li><code>cargo run --locked -p fake-harness -- --self-test</code></li>
+      <li><code>cargo run --locked -p conformance-runner -- --self-test</code></li>
+      <li><code>python docs/contracts/validate_contracts.py</code></li>
+      <li><code>node tools/check-m1-impl-r4.mjs --mode structural|cargo-check|cargo-test|drift-real|selftests-real</code></li>
+    </ul>
+  </section>
+
+  <footer>结论口径来源：M1 冻结六要素、实现报告与 R1/R2/R3 独立验收记录。本文不新增测试数据，不改变任何冻结语义。</footer>
+</main>
+</body>
+</html>
