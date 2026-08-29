@@ -1,6 +1,6 @@
 # M1 iteration 3 — F13/F14/F15 fixes
 
-Date: 2026-08-29  
+Date: 2026-08-29
 Author: Remote Agent
 
 ## Scope
