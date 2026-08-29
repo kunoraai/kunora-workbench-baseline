@@ -1,0 +1,61 @@
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Dependency and package-manager state
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+
+# Build, test, and coverage outputs
+dist/
+lib/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+.artifacts/
+.dsh-build/
+
+# Python environments and caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Runtime state and temporary files
+.cache/
+tmp/
+temp/
+*.log
+*.tmp
+*.swp
+*.swo
+*~
+
+# Local editor and agent settings
+/.vscode/
+/.idea/
+/.claude/
+/.codex/
+CLAUDE.local.md
+AGENTS.local.md
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local worktrees
+/.worktrees/
+/worktrees/

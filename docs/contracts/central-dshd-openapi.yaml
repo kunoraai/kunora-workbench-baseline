@@ -1,0 +1,1166 @@
+openapi: 3.1.0
+info:
+  title: Central Service - dshd MVP Contract
+  version: 1.0.0
+  description: >-
+    Machine-verifiable contract for the Node Registry and Daemon Management
+    APIs. Harness /api/** payloads and /api/remote.mux frames are intentionally
+    opaque and are governed by central-dshd-interface-spec.md plus the
+    conformance vectors.
+security:
+  - nodeBearer: []
+x-dshd-transport:
+  control_json_decompressed_max_bytes: 65536
+  request_header_section_max_bytes: 65536
+  application_rate_limit: false
+  generates_http_429: false
+  single_service_port: true
+  default_listen_port: 8080
+  listen_port_min: 1024
+  listen_port_max: 65535
+paths:
+  /internal/dshd/v1/nodes/{node_id}/instances/{instance_id}:
+    servers:
+      - url: https://central.example.invalid
+        description: Central Node Registry endpoint
+    put:
+      operationId: registerNodeInstance
+      summary: Register or recover one dshd instance
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+        - $ref: '#/components/parameters/InstanceId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '200':
+          description: Lease granted or idempotently returned
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistrationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '426':
+          $ref: '#/components/responses/UpgradeRequired'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+    delete:
+      operationId: deregisterNodeInstance
+      summary: Best-effort deregistration of the current instance
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+        - $ref: '#/components/parameters/InstanceId'
+        - $ref: '#/components/parameters/LeaseIdQuery'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '204':
+          description: Current lease revoked or already absent
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /internal/dshd/v1/nodes/{node_id}/instances/{instance_id}/lease:
+    servers:
+      - url: https://central.example.invalid
+        description: Central Node Registry endpoint
+    put:
+      operationId: renewNodeLease
+      summary: Renew the current instance lease and report node facts
+      parameters:
+        - $ref: '#/components/parameters/NodeId'
+        - $ref: '#/components/parameters/InstanceId'
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        '200':
+          description: Heartbeat accepted
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeartbeatResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+  /daemon/v1/status:
+    servers:
+      - url: http://dshd:{port}
+        description: dshd management endpoint on the private node network
+        variables:
+          port:
+            default: '8080'
+            description: Configured dshd service port; the protocol does not require 8080
+    get:
+      operationId: getDaemonStatus
+      summary: Read full authenticated daemon, registration and Harness status
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Current node status
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /daemon/v1/health/live:
+    servers:
+      - url: http://dshd:{port}
+        description: dshd endpoint on the private node network
+        variables:
+          port:
+            default: '8080'
+            description: Configured dshd service port; the protocol does not require 8080
+    get:
+      operationId: getDaemonLiveness
+      summary: Public dshd event-loop liveness
+      security: []
+      responses:
+        '200':
+          description: dshd is live
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveHealth'
+  /daemon/v1/health/local:
+    servers:
+      - url: http://dshd:{port}
+        description: dshd endpoint on the private node network
+        variables:
+          port:
+            default: '8080'
+            description: Configured dshd service port; the protocol does not require 8080
+    get:
+      operationId: getHarnessLocalHealth
+      summary: Public local Harness health independent of the central lease
+      security: []
+      responses:
+        '200':
+          description: Local Harness generation is usable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalHealth'
+        '503':
+          description: Local Harness is not usable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotLocalHealth'
+  /daemon/v1/health/ready:
+    servers:
+      - url: http://dshd:{port}
+        description: dshd endpoint on the private node network
+        variables:
+          port:
+            default: '8080'
+            description: Configured dshd service port; the protocol does not require 8080
+    get:
+      operationId: getNodeReadiness
+      summary: Public readiness for central business traffic
+      security: []
+      responses:
+        '200':
+          description: Daemon, lease, desired state and observed Harness are ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyHealth'
+        '503':
+          description: Node is not ready for central business traffic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotReadyHealth'
+  /daemon/v1/harness/start:
+    $ref: '#/components/pathItems/LifecycleStart'
+  /daemon/v1/harness/stop:
+    $ref: '#/components/pathItems/LifecycleStop'
+  /daemon/v1/harness/restart:
+    $ref: '#/components/pathItems/LifecycleRestart'
+  /daemon/v1/operations/{operation_id}:
+    servers:
+      - url: http://dshd:{port}
+        description: dshd management endpoint on the private node network
+        variables:
+          port:
+            default: '8080'
+            description: Configured dshd service port; the protocol does not require 8080
+    get:
+      operationId: getLifecycleOperation
+      summary: Read one durable lifecycle operation
+      parameters:
+        - $ref: '#/components/parameters/OperationId'
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Operation found
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Operation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+components:
+  securitySchemes:
+    nodeBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-256-bit-node-token
+  headers:
+    RequestId:
+      description: Request correlation UUID, echoed or generated by the receiver
+      schema:
+        $ref: '#/components/schemas/UuidV4'
+  parameters:
+    NodeId:
+      name: node_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/NodeId'
+    InstanceId:
+      name: instance_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UuidV4'
+    OperationId:
+      name: operation_id
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UuidV4'
+    LeaseIdQuery:
+      name: lease_id
+      in: query
+      required: true
+      schema:
+        $ref: '#/components/schemas/UuidV4'
+    RequestId:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema:
+        $ref: '#/components/schemas/UuidV4'
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/UuidV4'
+  pathItems:
+    LifecycleStart:
+      servers:
+        - url: http://dshd:{port}
+          description: dshd management endpoint on the private node network
+          variables:
+            port:
+              default: '8080'
+              description: Configured dshd service port; the protocol does not require 8080
+      post:
+        operationId: startHarness
+        summary: Start the local Harness
+        parameters:
+          - $ref: '#/components/parameters/RequestId'
+          - $ref: '#/components/parameters/IdempotencyKey'
+        requestBody:
+          $ref: '#/components/requestBodies/LifecycleRequest'
+        responses:
+          '200':
+            $ref: '#/components/responses/LifecycleNoOp'
+          '202':
+            $ref: '#/components/responses/LifecycleAccepted'
+          '400':
+            $ref: '#/components/responses/BadRequest'
+          '401':
+            $ref: '#/components/responses/Unauthenticated'
+          '403':
+            $ref: '#/components/responses/Forbidden'
+          '409':
+            $ref: '#/components/responses/Conflict'
+          '413':
+            $ref: '#/components/responses/PayloadTooLarge'
+    LifecycleStop:
+      servers:
+        - url: http://dshd:{port}
+          description: dshd management endpoint on the private node network
+          variables:
+            port:
+              default: '8080'
+              description: Configured dshd service port; the protocol does not require 8080
+      post:
+        operationId: stopHarness
+        summary: Stop the local Harness
+        parameters:
+          - $ref: '#/components/parameters/RequestId'
+          - $ref: '#/components/parameters/IdempotencyKey'
+        requestBody:
+          $ref: '#/components/requestBodies/LifecycleRequest'
+        responses:
+          '200':
+            $ref: '#/components/responses/LifecycleNoOp'
+          '202':
+            $ref: '#/components/responses/LifecycleAccepted'
+          '400':
+            $ref: '#/components/responses/BadRequest'
+          '401':
+            $ref: '#/components/responses/Unauthenticated'
+          '403':
+            $ref: '#/components/responses/Forbidden'
+          '409':
+            $ref: '#/components/responses/Conflict'
+          '413':
+            $ref: '#/components/responses/PayloadTooLarge'
+    LifecycleRestart:
+      servers:
+        - url: http://dshd:{port}
+          description: dshd management endpoint on the private node network
+          variables:
+            port:
+              default: '8080'
+              description: Configured dshd service port; the protocol does not require 8080
+      post:
+        operationId: restartHarness
+        summary: Restart the local Harness
+        parameters:
+          - $ref: '#/components/parameters/RequestId'
+          - $ref: '#/components/parameters/IdempotencyKey'
+        requestBody:
+          $ref: '#/components/requestBodies/LifecycleRequest'
+        responses:
+          '200':
+            $ref: '#/components/responses/LifecycleNoOp'
+          '202':
+            $ref: '#/components/responses/LifecycleAccepted'
+          '400':
+            $ref: '#/components/responses/BadRequest'
+          '401':
+            $ref: '#/components/responses/Unauthenticated'
+          '403':
+            $ref: '#/components/responses/Forbidden'
+          '409':
+            $ref: '#/components/responses/Conflict'
+          '413':
+            $ref: '#/components/responses/PayloadTooLarge'
+  requestBodies:
+    LifecycleRequest:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/LifecycleRequest'
+  responses:
+    LifecycleNoOp:
+      description: Target state already holds; a completed operation record is returned
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Operation'
+    LifecycleAccepted:
+      description: Lifecycle operation accepted for serialized execution
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Operation'
+    BadRequest:
+      description: Path, header or JSON input is invalid
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BadRequestErrorResponse'
+    Unauthenticated:
+      description: Node token missing or invalid
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnauthenticatedErrorResponse'
+    Forbidden:
+      description: Authenticated token is bound to a different node
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ForbiddenErrorResponse'
+    Conflict:
+      description: Identity, lease, generation, operation or idempotency conflict
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ConflictErrorResponse'
+    Unprocessable:
+      description: Advertised endpoint is not an allowed private dshd address
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UnprocessableErrorResponse'
+    UpgradeRequired:
+      description: Protocol version or required capabilities are incompatible
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UpgradeRequiredErrorResponse'
+    PayloadTooLarge:
+      description: Decompressed Registry or Management JSON exceeds 65536 bytes
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/PayloadTooLargeErrorResponse'
+    NotFound:
+      description: Operation not found or no longer retained
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/NotFoundErrorResponse'
+  schemas:
+    UuidV4:
+      type: string
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+    NodeId:
+      type: string
+      pattern: '^[a-z0-9][a-z0-9._-]{0,63}$'
+    Timestamp:
+      type: string
+      format: date-time
+    ProtocolVersion:
+      type: string
+      enum: ['1.0']
+    DaemonState:
+      type: string
+      enum: [STARTING, READY, STOPPING]
+    RegistrationState:
+      type: string
+      enum: [UNREGISTERED, REGISTERING, LEASED, DEGRADED, FENCED]
+    HarnessState:
+      type: string
+      enum: [STOPPED, STARTING, AUTHENTICATING, READY, UNHEALTHY, STOPPING]
+    DesiredHarnessState:
+      type: string
+      enum: [RUNNING, STOPPED]
+    Capability:
+      type: string
+      pattern: '^[a-z][a-z0-9.-]+\.v[1-9][0-9]*$'
+    DaemonBuild:
+      type: object
+      additionalProperties: true
+      required: [version, build_sha]
+      properties:
+        version:
+          type: string
+          minLength: 1
+        build_sha:
+          type: string
+          minLength: 7
+    HarnessRegistration:
+      type: object
+      additionalProperties: true
+      required: [version, build_sha, desired_state, state, generation]
+      properties:
+        version:
+          type: string
+          minLength: 1
+        build_sha:
+          type: string
+          minLength: 7
+        desired_state:
+          $ref: '#/components/schemas/DesiredHarnessState'
+        state:
+          $ref: '#/components/schemas/HarnessState'
+        generation:
+          type: integer
+          minimum: 0
+    RegistrationRequest:
+      type: object
+      additionalProperties: true
+      required:
+        - protocol_version
+        - storage_id
+        - advertise_url
+        - started_at
+        - dshd
+        - harness
+        - capabilities
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        storage_id:
+          $ref: '#/components/schemas/UuidV4'
+        predecessor_instance_id:
+          $ref: '#/components/schemas/UuidV4'
+        advertise_url:
+          type: string
+          format: uri
+          description: Deployment-supplied private dshd endpoint with an explicit centrally reachable port in the range 1..65535; it is not inferred from the listener
+          pattern: '^http://(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\]):[0-9]{1,5}$'
+          x-explicit-port-min: 1
+          x-explicit-port-max: 65535
+        started_at:
+          $ref: '#/components/schemas/Timestamp'
+        dshd:
+          $ref: '#/components/schemas/DaemonBuild'
+        harness:
+          $ref: '#/components/schemas/HarnessRegistration'
+        capabilities:
+          type: array
+          minItems: 4
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/Capability'
+          allOf:
+            - contains:
+                const: daemon.lifecycle.v1
+              minContains: 1
+            - contains:
+                const: harness.http-proxy.v1
+              minContains: 1
+            - contains:
+                const: harness.remote-mux.v1
+              minContains: 1
+            - contains:
+                const: harness.session-export.v1
+              minContains: 1
+    RegistrationResponse:
+      type: object
+      additionalProperties: true
+      required:
+        - node_id
+        - storage_id
+        - instance_id
+        - lease_id
+        - lease_expires_at
+        - heartbeat_interval_ms
+        - lease_ttl_ms
+        - accepted_protocol_version
+        - server_time
+      properties:
+        node_id:
+          $ref: '#/components/schemas/NodeId'
+        storage_id:
+          $ref: '#/components/schemas/UuidV4'
+        instance_id:
+          $ref: '#/components/schemas/UuidV4'
+        lease_id:
+          $ref: '#/components/schemas/UuidV4'
+        lease_expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        heartbeat_interval_ms:
+          type: integer
+          minimum: 1000
+        lease_ttl_ms:
+          type: integer
+          minimum: 3000
+        accepted_protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        server_time:
+          $ref: '#/components/schemas/Timestamp'
+    DaemonFact:
+      type: object
+      additionalProperties: true
+      required: [state, uptime_ms]
+      properties:
+        state:
+          $ref: '#/components/schemas/DaemonState'
+        uptime_ms:
+          type: integer
+          minimum: 0
+    ErrorDetail:
+      type: object
+      additionalProperties: true
+      required: [code, message, retryable, at]
+      properties:
+        code:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]{1,63}$'
+        message:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+        at:
+          $ref: '#/components/schemas/Timestamp'
+    HarnessFact:
+      type: object
+      additionalProperties: true
+      required: [desired_state, state, generation, uptime_ms, restart_count, last_error]
+      properties:
+        desired_state:
+          $ref: '#/components/schemas/DesiredHarnessState'
+        state:
+          $ref: '#/components/schemas/HarnessState'
+        generation:
+          type: integer
+          minimum: 0
+        uptime_ms:
+          type: integer
+          minimum: 0
+        restart_count:
+          type: integer
+          minimum: 0
+        last_error:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorDetail'
+            - type: 'null'
+    ProxyFact:
+      type: object
+      additionalProperties: true
+      required: [active_http_requests, active_websockets]
+      properties:
+        active_http_requests:
+          type: integer
+          minimum: 0
+        active_websockets:
+          type: integer
+          minimum: 0
+    ResourceFact:
+      type: object
+      additionalProperties: true
+      properties:
+        cpu_percent:
+          type: number
+          minimum: 0
+          maximum: 100
+        memory_working_set_bytes:
+          type: integer
+          minimum: 0
+        workspace_free_bytes:
+          type: integer
+          minimum: 0
+        state_free_bytes:
+          type: integer
+          minimum: 0
+    HeartbeatRequest:
+      type: object
+      additionalProperties: true
+      required: [lease_id, sequence, observed_at, daemon, harness, proxy, resources]
+      properties:
+        lease_id:
+          $ref: '#/components/schemas/UuidV4'
+        sequence:
+          type: integer
+          minimum: 0
+        observed_at:
+          $ref: '#/components/schemas/Timestamp'
+        daemon:
+          $ref: '#/components/schemas/DaemonFact'
+        harness:
+          $ref: '#/components/schemas/HarnessFact'
+        proxy:
+          $ref: '#/components/schemas/ProxyFact'
+        resources:
+          $ref: '#/components/schemas/ResourceFact'
+    HeartbeatResponse:
+      type: object
+      additionalProperties: true
+      required: [accepted_sequence, lease_expires_at, server_time]
+      properties:
+        accepted_sequence:
+          type: integer
+          minimum: 0
+        lease_expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        server_time:
+          $ref: '#/components/schemas/Timestamp'
+    DaemonStatus:
+      type: object
+      additionalProperties: true
+      required: [state, version, started_at, uptime_ms]
+      properties:
+        state:
+          $ref: '#/components/schemas/DaemonState'
+        version:
+          type: string
+          minLength: 1
+        started_at:
+          $ref: '#/components/schemas/Timestamp'
+        uptime_ms:
+          type: integer
+          minimum: 0
+    HarnessStatus:
+      allOf:
+        - $ref: '#/components/schemas/HarnessFact'
+        - type: object
+          additionalProperties: true
+          required: [version]
+          properties:
+            version:
+              type: string
+              minLength: 1
+            pid:
+              type: integer
+              minimum: 1
+            started_at:
+              $ref: '#/components/schemas/Timestamp'
+          allOf:
+            - if:
+                required: [state]
+                properties:
+                  state:
+                    const: READY
+              then:
+                required: [pid, started_at]
+            - if:
+                required: [state]
+                properties:
+                  state:
+                    const: STOPPED
+              then:
+                not:
+                  anyOf:
+                    - required: [pid]
+                    - required: [started_at]
+    RegistrationStatus:
+      type: object
+      additionalProperties: true
+      required: [state]
+      properties:
+        state:
+          $ref: '#/components/schemas/RegistrationState'
+        lease_expires_at:
+          $ref: '#/components/schemas/Timestamp'
+        last_heartbeat_at:
+          $ref: '#/components/schemas/Timestamp'
+      allOf:
+        - if:
+            required: [state]
+            properties:
+              state:
+                const: LEASED
+          then:
+            required: [lease_expires_at, last_heartbeat_at]
+        - if:
+            required: [state]
+            properties:
+              state:
+                enum: [UNREGISTERED, REGISTERING]
+          then:
+            not:
+              anyOf:
+                - required: [lease_expires_at]
+                - required: [last_heartbeat_at]
+    StatusResponse:
+      type: object
+      additionalProperties: true
+      required:
+        - protocol_version
+        - node_id
+        - storage_id
+        - instance_id
+        - daemon
+        - harness
+        - registration
+        - proxy
+        - resources
+      properties:
+        protocol_version:
+          $ref: '#/components/schemas/ProtocolVersion'
+        node_id:
+          $ref: '#/components/schemas/NodeId'
+        storage_id:
+          $ref: '#/components/schemas/UuidV4'
+        instance_id:
+          $ref: '#/components/schemas/UuidV4'
+        daemon:
+          $ref: '#/components/schemas/DaemonStatus'
+        harness:
+          $ref: '#/components/schemas/HarnessStatus'
+        registration:
+          $ref: '#/components/schemas/RegistrationStatus'
+        proxy:
+          $ref: '#/components/schemas/ProxyFact'
+        resources:
+          $ref: '#/components/schemas/ResourceFact'
+    LiveHealth:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: live
+    LocalHealth:
+      type: object
+      additionalProperties: false
+      required: [status, generation]
+      properties:
+        status:
+          const: local
+        generation:
+          type: integer
+          minimum: 1
+    NotLocalHealth:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          const: not_local
+    ReadyHealth:
+      type: object
+      additionalProperties: false
+      required: [status, generation]
+      properties:
+        status:
+          const: ready
+        generation:
+          type: integer
+          minimum: 1
+    NotReadyHealth:
+      type: object
+      additionalProperties: false
+      required: [status, reason]
+      properties:
+        status:
+          const: not_ready
+        reason:
+          type: string
+          enum: [DAEMON_NOT_READY, REGISTRATION_NOT_LEASED, HARNESS_NOT_READY]
+    LifecycleRequest:
+      type: object
+      additionalProperties: true
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 256
+        expected_generation:
+          type: integer
+          minimum: 0
+    OperationResult:
+      type: object
+      additionalProperties: true
+      required: [current_generation, harness_state]
+      properties:
+        previous_generation:
+          type: integer
+          minimum: 0
+        current_generation:
+          type: integer
+          minimum: 0
+        harness_state:
+          $ref: '#/components/schemas/HarnessState'
+    Operation:
+      type: object
+      additionalProperties: true
+      required: [operation_id, type, state, no_op, requested_at]
+      properties:
+        operation_id:
+          $ref: '#/components/schemas/UuidV4'
+        type:
+          type: string
+          enum: [START, STOP, RESTART]
+        state:
+          type: string
+          enum: [PENDING, RUNNING, SUCCEEDED, FAILED]
+        no_op:
+          type: boolean
+        requested_at:
+          $ref: '#/components/schemas/Timestamp'
+        started_at:
+          $ref: '#/components/schemas/Timestamp'
+        finished_at:
+          $ref: '#/components/schemas/Timestamp'
+        expected_generation:
+          type: integer
+          minimum: 0
+        result:
+          $ref: '#/components/schemas/OperationResult'
+        error:
+          oneOf:
+            - $ref: '#/components/schemas/ErrorDetail'
+            - type: 'null'
+      allOf:
+        - if:
+            required: [state]
+            properties:
+              state:
+                const: PENDING
+          then:
+            properties:
+              no_op:
+                const: false
+              started_at: false
+              finished_at: false
+              result: false
+              error: false
+        - if:
+            required: [state]
+            properties:
+              state:
+                const: RUNNING
+          then:
+            required: [started_at]
+            properties:
+              no_op:
+                const: false
+              finished_at: false
+              result: false
+              error: false
+        - if:
+            required: [state]
+            properties:
+              state:
+                const: SUCCEEDED
+          then:
+            required: [finished_at, result, error]
+            properties:
+              error:
+                type: 'null'
+            allOf:
+              - if:
+                  required: [no_op]
+                  properties:
+                    no_op:
+                      const: true
+                then:
+                  properties:
+                    started_at: false
+                else:
+                  required: [started_at]
+              - if:
+                  required: [type]
+                  properties:
+                    type:
+                      const: STOP
+                then:
+                  properties:
+                    result:
+                      allOf:
+                        - $ref: '#/components/schemas/OperationResult'
+                        - properties:
+                            harness_state:
+                              const: STOPPED
+              - if:
+                  required: [type]
+                  properties:
+                    type:
+                      enum: [START, RESTART]
+                then:
+                  properties:
+                    result:
+                      allOf:
+                        - $ref: '#/components/schemas/OperationResult'
+                        - properties:
+                            harness_state:
+                              const: READY
+              - if:
+                  required: [type]
+                  properties:
+                    type:
+                      const: RESTART
+                then:
+                  properties:
+                    result:
+                      allOf:
+                        - $ref: '#/components/schemas/OperationResult'
+                        - required: [previous_generation]
+        - if:
+            required: [state]
+            properties:
+              state:
+                const: FAILED
+          then:
+            required: [error, finished_at]
+            properties:
+              no_op:
+                const: false
+              result: false
+              error:
+                $ref: '#/components/schemas/ErrorDetail'
+    ErrorEnvelope:
+      type: object
+      additionalProperties: true
+      required: [code, message, retryable, request_id, details]
+      properties:
+        code:
+          type: string
+          enum:
+            - INVALID_REQUEST
+            - UNAUTHENTICATED
+            - NODE_ID_MISMATCH
+            - NOT_FOUND
+            - NODE_INSTANCE_CONFLICT
+            - STORAGE_ID_MISMATCH
+            - STALE_INSTANCE
+            - NODE_FENCED
+            - NODE_NOT_LEASED
+            - GENERATION_MISMATCH
+            - OPERATION_CONFLICT
+            - IDEMPOTENCY_KEY_REUSE
+            - PAYLOAD_TOO_LARGE
+            - INVALID_ADVERTISE_URL
+            - PROTOCOL_UNSUPPORTED
+            - HARNESS_BAD_GATEWAY
+            - HARNESS_NOT_READY
+            - HARNESS_TIMEOUT
+        message:
+          type: string
+          minLength: 1
+        retryable:
+          type: boolean
+        request_id:
+          $ref: '#/components/schemas/UuidV4'
+        details:
+          type: object
+          additionalProperties: true
+    ErrorResponse:
+      type: object
+      additionalProperties: true
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorEnvelope'
+    BadRequestErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - properties:
+            error:
+              properties:
+                code:
+                  const: INVALID_REQUEST
+    UnauthenticatedErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - properties:
+            error:
+              properties:
+                code:
+                  const: UNAUTHENTICATED
+    ForbiddenErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - properties:
+            error:
+              properties:
+                code:
+                  const: NODE_ID_MISMATCH
+    NotFoundErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - properties:
+            error:
+              properties:
+                code:
+                  const: NOT_FOUND
+    ConflictErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - properties:
+            error:
+              properties:
+                code:
+                  enum:
+                    - NODE_INSTANCE_CONFLICT
+                    - STORAGE_ID_MISMATCH
+                    - STALE_INSTANCE
+                    - NODE_FENCED
+                    - NODE_NOT_LEASED
+                    - GENERATION_MISMATCH
+                    - OPERATION_CONFLICT
+                    - IDEMPOTENCY_KEY_REUSE
+    PayloadTooLargeErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - properties:
+            error:
+              properties:
+                code:
+                  const: PAYLOAD_TOO_LARGE
+    UnprocessableErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - properties:
+            error:
+              properties:
+                code:
+                  const: INVALID_ADVERTISE_URL
+    UpgradeRequiredErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/ErrorResponse'
+        - properties:
+            error:
+              properties:
+                code:
+                  const: PROTOCOL_UNSUPPORTED

@@ -1,0 +1,296 @@
+version: "1.0.4"
+status: frozen
+frozen_at: "2026-08-29"
+harness:
+  tag: dsh-v0.1.2-alpha.1
+  commit: cd5ef8148158c3a752a658978873241fdf8e2bbc
+scope: official_web_ui_backend_parity
+scope_semantics:
+  status: frozen
+  web_ui: harness_owned_proxy_parity_only
+  dshd: dshd_owned_implementation
+  mvp_excluded: no_implementation_required
+acceptance_policy:
+  all_web_ui_ids_must_pass: true
+  coverage_report_required: true
+  web_ui_methods:
+    - inventory_contract
+    - parity_e2e
+  dshd_supplement_methods:
+    - contract_test
+    - e2e
+  excluded_methods:
+    - boundary_review
+capabilities:
+  - id: WUI-001
+    classification: web_ui
+    domain: session_catalog
+    capability: list、search、create Session
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-002
+    classification: web_ui
+    domain: session_operations
+    capability: rename、fork、prompt、cancel Session
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-003
+    classification: web_ui
+    domain: pending_queue
+    capability: 查看、edit、remove、steer pending queue
+    transports: [remote_http, remote_mux]
+    implementation_phases: [M4, M5]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-004
+    classification: web_ui
+    domain: history
+    capability: page、follow、断线续接
+    transports: [remote_http, remote_mux]
+    implementation_phases: [M4, M5]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-005
+    classification: web_ui
+    domain: session_events
+    capability: added、removed、activity、running、error 事件
+    transports: [remote_mux]
+    implementation_phases: [M5]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-006
+    classification: web_ui
+    domain: session_control
+    capability: queue、jobs view、projection values 实时投影
+    transports: [remote_mux]
+    implementation_phases: [M5]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-007
+    classification: web_ui
+    domain: models
+    capability: model catalog、select model、provider list、model discovery
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-008
+    classification: web_ui
+    domain: settings
+    capability: describe、update、replace、mutate settings
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-009
+    classification: web_ui
+    domain: credentials
+    capability: describe、set、unset credentials
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-010
+    classification: web_ui
+    domain: workspace
+    capability: create、rename、remove registration、排序、archive session、follow
+    transports: [remote_http, remote_mux]
+    implementation_phases: [M4, M5]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-011
+    classification: web_ui
+    domain: agent_presets
+    capability: list、read、copy、delete、select Agent Preset
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-012
+    classification: web_ui
+    domain: slash_commands
+    capability: list、execute Slash Commands
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-013
+    classification: web_ui
+    domain: goals
+    capability: create、edit、pause、resume、complete、clear Goal
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-014
+    classification: web_ui
+    domain: subagents
+    capability: list、prompt、interrupt Subagent
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-015
+    classification: web_ui
+    domain: references
+    capability: 文件和 Session reference candidates/list
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-016
+    classification: web_ui
+    domain: attachments
+    capability: attachment prompt admission、读取
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-017
+    classification: web_ui
+    domain: message_feedback
+    capability: list、put、delete message feedback
+    transports: [remote_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-018
+    classification: web_ui
+    domain: approval
+    capability: Approval 请求与结果回传
+    transports: [remote_mux]
+    implementation_phases: [M5]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-019
+    classification: web_ui
+    domain: user_questions
+    capability: User Questions 请求与答案回传
+    transports: [remote_mux]
+    implementation_phases: [M5]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-020
+    classification: web_ui
+    domain: plugins
+    capability: plugin inventory 与 Web 动态 Cordis 操作
+    transports: [remote_http, remote_mux]
+    implementation_phases: [M4, M5]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: WUI-021
+    classification: web_ui
+    domain: session_export
+    capability: GET/HEAD Session 及子会话、附件 ZIP 导出
+    transports: [fetch_http]
+    implementation_phases: [M4]
+    acceptance_methods: [inventory_contract, parity_e2e]
+    evidence: dsh/harness-api-exposure-audit.md#2-已完整暴露
+  - id: DSHD-001
+    classification: dshd_supplement
+    domain: lifecycle
+    capability: Harness start、stop、restart 与 operation 查询
+    transports: [daemon_http]
+    implementation_phases: [M3]
+    acceptance_methods: [contract_test, e2e]
+    evidence: interfaces/central-dshd-interface-spec.md#6-daemon-management-apidshd-提供
+  - id: DSHD-002
+    classification: dshd_supplement
+    domain: node_status
+    capability: dshd/Harness health、status、PID、uptime 与资源摘要
+    transports: [daemon_http]
+    implementation_phases: [M3]
+    acceptance_methods: [contract_test, e2e]
+    evidence: interfaces/central-dshd-interface-spec.md#6-daemon-management-apidshd-提供
+  - id: DSHD-003
+    classification: dshd_supplement
+    domain: registration
+    capability: register、heartbeat、lease、deregister 与 fencing
+    transports: [registry_http]
+    implementation_phases: [M6]
+    acceptance_methods: [contract_test, e2e]
+    evidence: interfaces/central-dshd-interface-spec.md#5-node-registry-api中央服务提供
+  - id: DSHD-004
+    classification: dshd_supplement
+    domain: logs
+    capability: dshd/Harness 脱敏结构化 stdout/stderr
+    transports: [container_logs]
+    implementation_phases: [M7]
+    acceptance_methods: [contract_test, e2e]
+    evidence: interfaces/central-dshd-interface-spec.md#64-运维输出契约
+  - id: OUT-001
+    classification: mvp_excluded
+    domain: background_jobs
+    capability: 面向用户的直接 job read、wait、kill
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#3-部分暴露
+  - id: OUT-002
+    classification: mvp_excluded
+    domain: persistent_terminal
+    capability: 面向用户的直接 terminal list、send、read、signal、close
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#3-部分暴露
+  - id: OUT-003
+    classification: mvp_excluded
+    domain: general_file_management
+    capability: 通用远程文件管理 API
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#3-部分暴露
+  - id: OUT-004
+    classification: mvp_excluded
+    domain: credential_plaintext
+    capability: 读取 credential secret 明文
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#3-部分暴露
+  - id: OUT-005
+    classification: mvp_excluded
+    domain: session_delete
+    capability: 删除 Session 及其持久化数据
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#4-当前不存在或未暴露
+  - id: OUT-006
+    classification: mvp_excluded
+    domain: session_unarchive
+    capability: Session unarchive
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#4-当前不存在或未暴露
+  - id: OUT-007
+    classification: mvp_excluded
+    domain: session_import
+    capability: Session ZIP 导入或恢复
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#4-当前不存在或未暴露
+  - id: OUT-008
+    classification: mvp_excluded
+    domain: raw_persistence
+    capability: 直接读取或修改原始 Session persistence 文件
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#4-当前不存在或未暴露
+  - id: OUT-009
+    classification: mvp_excluded
+    domain: arbitrary_cordis_service
+    capability: 当前官方 Web UI 未 Remote 化的任意 Cordis Service
+    transports: [none]
+    implementation_phases: []
+    acceptance_methods: [boundary_review]
+    evidence: dsh/harness-api-exposure-audit.md#5-对-dshd-方案的影响
