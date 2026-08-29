@@ -1,0 +1,11 @@
+[package]
+name = "contract-gen"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde_yaml = "0.9"
+sha2 = "0.10"
+
+[lints]
+workspace = true

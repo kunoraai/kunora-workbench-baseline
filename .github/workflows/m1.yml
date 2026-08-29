@@ -9,15 +9,45 @@ jobs:
         with: { python-version: '3.12' }
       - run: pip install -r docs/contracts/requirements-contracts.txt
       - run: python docs/contracts/validate_contracts.py
-  quality:
+  contract-generate:
+    runs-on: ubuntu-latest
+    needs: contracts-source
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: '1.89.0' }
+      - run: python docs/contracts/validate_contracts.py
+      - run: cargo run --locked -p contract-gen -- --regen
+      - run: cargo run --locked -p contract-gen -- --check
+      - run: cargo test --locked -p dshd-contract --test drift_gate
+  fmt:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
-        with: { toolchain: '1.89.0', components: 'rustfmt,clippy' }
+        with: { toolchain: '1.89.0', components: rustfmt }
       - run: cargo fmt --all -- --check
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: '1.89.0', components: clippy }
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: '1.89.0' }
       - run: cargo check --workspace --all-targets --locked
+  test:
+    runs-on: ubuntu-latest
+    needs: contract-generate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with: { toolchain: '1.89.0' }
       - run: cargo test --workspace --locked
   contract-assets:
     runs-on: ubuntu-latest
@@ -25,14 +55,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with: { toolchain: '1.89.0' }
-      - run: cargo test -p dshd-contract --test drift_gate --locked
-      - run: cargo run --locked -p conformance-runner -- --self-test
-      - run: cargo run --locked -p fake-harness -- --self-test
-      - run: cargo run --locked -p reference-stub -- --self-test
-      - run: cargo run --locked -p capability-report -- --self-test
+      - run: |
+          for p in conformance-runner fake-harness reference-stub capability-report; do cargo run --locked -p "$p" -- --version; cargo run --locked -p "$p" -- --self-test; done
+      - uses: actions/upload-artifact@v4
+        with: { name: contract-assets, path: 'tools/**/vectors.csv' }
   docker-smoke:
     runs-on: ubuntu-latest
-    needs: [contracts-source, quality, contract-assets]
+    needs: [fmt, clippy, check, test, contract-assets]
     steps:
       - uses: actions/checkout@v4
       - run: docker build -t dshd:m1 .

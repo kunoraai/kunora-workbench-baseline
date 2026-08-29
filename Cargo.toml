@@ -5,10 +5,12 @@ members = [
   "crates/dshd-core",
   "crates/dshd-contract",
   "crates/dshd-adapters",
+  "crates/canonical-json",
   "tools/conformance-runner",
   "tools/fake-harness",
   "tools/reference-stub",
   "tools/capability-report",
+  "tools/contract-gen",
 ]
 
 [workspace.package]
@@ -18,4 +20,3 @@ license = "Apache-2.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
-

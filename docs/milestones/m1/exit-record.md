@@ -5,7 +5,7 @@
 | ID | 状态 | 证据 |
 | --- | --- | --- |
 | AC-01 | PENDING | 新 clone CI 同一次 run（未推送） |
-| AC-02 | PASS | `dshd-contract/tests/drift_gate.rs` 正负测试 |
+| AC-02 | PASS | `contract-gen --check` 零 drift；机械验收损毁生成物后非零、恢复后归零 |
 | AC-03 | PENDING | CI 中的 `validate_contracts.py` 日志 |
 | AC-04 | PENDING | 无本地 Docker，等待 CI build/smoke |
 | AC-05 | PASS | Rust 1.89.0 与 `scripts/release-manifest.ps1` |
@@ -19,4 +19,3 @@
 | VM-06 | PASS | 本出口索引及诚实声明 |
 
 诚实声明：M1 未实现或验收任何 dshd 业务行为；runner 仅声明清单，结果为 `declared=66, executed=0`；fake Harness 与 reference stub 自检不等于产品行为通过；没有 `WUI-*` parity 双证据；目标 ECS、候选 digest 与真实 Docker 证据仍为 `PENDING`。
-
