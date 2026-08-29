@@ -23,6 +23,7 @@ coverage/
 *.tsbuildinfo
 .artifacts/
 .dsh-build/
+/target/
 
 # Python environments and caches
 __pycache__/

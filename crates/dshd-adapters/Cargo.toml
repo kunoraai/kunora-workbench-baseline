@@ -1,0 +1,12 @@
+[package]
+name = "dshd-adapters"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+dshd-core = { path = "../dshd-core" }
+dshd-contract = { path = "../dshd-contract" }
+
+[lints]
+workspace = true
+
