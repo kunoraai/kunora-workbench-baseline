@@ -224,6 +224,8 @@ pub(crate) fn render(input: &str) -> Result<BTreeMap<String, String>, String> {
     for (name, schema) in &entries {
         types.push_str(&render_named(name, schema)?)
     }
+    // Keep the managed Rust file stable under rustfmt (one final newline).
+    types.pop();
     files.insert("types.rs".into(), types);
     let mut names = format!("{header}pub const SCHEMA_NAMES: &[&str] = &[\n");
     for (name, _) in &entries {
