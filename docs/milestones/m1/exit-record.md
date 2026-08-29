@@ -2,6 +2,10 @@
 
 状态口径：本地机器证据填入；必须由远端 CI 或 Docker 产生的证据为 `PENDING`。
 
+本地候选提交：`f0ea8237d2a9a1057276189635682d213baf5a87`。本地验收 run：2026-08-29 五模式连续执行，均输出 `RESULT=PASS`；原始输出保留于任务执行记录。工具链为 `rustc 1.89.0 (29483883e 2025-08-04)`、`cargo 1.89.0 (c24e10642 2025-06-23)`；`Cargo.lock` SHA-256 为 `f091069863a575e0f7b2e09a70c20f9f631db36ce2b07bd6f5c22a286ec96111`，`rust-toolchain.toml` SHA-256 为 `4162448befdeae7c7c6db340df4e5b1fefa795ff6554d6c28ce952e3b05e5dd3`，Harness lock SHA-256 为 `506ad1fc7c40f71ce8c6afe08724fdd55020c1a527d7a7a185c559d39ecfcaf1`。
+
+原始 artifact 索引：生成物位于 `crates/dshd-contract/src/generated/`；66-vector manifest 为 `tools/conformance-runner/vectors.csv`；能力 inventory 为 `tools/capability-report/inventory.csv`；逐发现处置为 `docs/milestones/m1/reports/iteration-r2-fixes.md`。远端 CI run URL/ID、Docker image ID/build log 因未推送且本机无 Docker，明确留空并保持 PENDING。
+
 | ID | 状态 | 证据 |
 | --- | --- | --- |
 | AC-01 | PENDING | 新 clone CI 同一次 run（未推送） |
