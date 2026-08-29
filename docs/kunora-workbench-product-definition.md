@@ -10,6 +10,7 @@
 | v0.6 | 2026-08-29 | Codex | 评审中 | 按后端节点的表述方式，固化中央服务的形态、技术栈、部署、数据、接口、调度、路由和责任边界。 | [BIZ-01][TECH-07] |
 | v0.7 | 2026-08-29 | Codex | 评审中 | 定义工作台的任务模型、任务关联、定义内容、启动门禁、里程碑信息和执行交付方式。 | 用户指令 [BIZ-02] |
 | v0.8 | 2026-08-29 | Codex | 评审中 | 将任务基础信息从六要素中独立出来，明确任务名称和任务介绍也是任务定义及首次启动门禁的一部分。 | 用户指令 [BIZ-03] |
+| v0.9 | 2026-08-29 | Codex | 评审中 | 按用户明确指令，将 dshd 技术栈从 Node.js 24 + TypeScript ESM 修正为 Rust；dshd 的职责与边界不变，容器内 Node.js 24 仅作为 Harness 子进程运行时。 | 用户澄清 |
 
 # Kunora Workbench 产品简报
 
@@ -121,7 +122,7 @@ flowchart TB
 
 | 固定项 | 定义 | 依据 |
 | --- | --- | --- |
-| 技术栈 | Node.js 24 + TypeScript ESM；作为 Kunora 自有独立服务实现，不修改或导入 Harness 私有实现。 | [TECH-04][TECH-06] |
+| 技术栈 | Rust；作为 Kunora 自有独立服务实现，不修改或导入 Harness 私有实现；容器内 Node.js 24 仅作为 Harness 子进程运行时。 | [TECH-04][TECH-06] |
 | Harness 托管 | 启动、停止、重启和守护同容器内唯一 Harness 子进程；解析 ready URL，完成本地认证并维护连接 generation。 | [TECH-03][TECH-04] |
 | 管理服务 | 通过 `/daemon/v1/**` 提供状态、健康、Harness 生命周期和异步 operation 查询。 | [TECH-04][TECH-05] |
 | 业务代理 | 透明代理全部 Harness `/api/**` HTTP 请求、流式响应和 Session export；不解释或重写 Harness 业务数据。 | [TECH-03][TECH-04][TECH-05] |

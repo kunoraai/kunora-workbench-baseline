@@ -13,6 +13,7 @@
 | v0.9 | 2026-08-29 | Agent | 闭合 advertise URL 配置来源、非 root 监听端口范围、中央 stub 后端验收边界和目标 ECS 环境清单。 | 用户要求、[OPS-01][OPS-02][TECH-07][OPS-04] |
 | v1.0 | 2026-08-29 | Agent | 固化逐项 Web 能力验收基线，并将目标 ECS 环境选择与架构前提预检前移到候选镜像形成之前；不改变节点架构。 | 用户要求、[TECH-10][OPS-01][OPS-04] |
 | v1.1 | 2026-08-29 | Agent | 随工作区模块化整理更新文档与冻结源码路径；节点架构和范围不变。 | 用户要求、[TECH-01][TECH-10] |
+| v1.2 | 2026-08-29 | Agent | 按用户明确指令，dshd 实现技术栈由 Node.js 变更为 Rust 原生二进制：修订运行时假设与镜像组成表述，统一 `/health/live` liveness 措辞，并修复参考文献中的失效本地绝对路径为仓库相对路径；节点架构、接口契约与行为语义不变。 | 用户明确指令、[PRD-01][OPS-01] |
 
 # 1. 文档概述
 
@@ -135,7 +136,7 @@ flowchart LR
 | 约束 | 中央服务只能通过 dshd 操作节点 | Harness 不暴露给中央服务，dshd 是节点唯一控制点 | [PRD-01][OPS-02] |
 | 约束 | dshd 不承担全局控制面职责 | 节点目录、调度、会话到节点映射和用户授权归中央服务 | [PRD-01][OPS-02] |
 | 假设 | 中央服务可通过 ECS 私网访问 dshd 发布地址 | MVP 不需要反向隧道、消息队列或长轮询命令通道 | [OPS-02] |
-| 假设 | 部署环境支持 Node.js 子进程、signal、HTTP 和 WebSocket | 不成立时需要替代 supervisor/runtime | [TECH-05] |
+| 假设 | 镜像同时提供 dshd 的 Rust 原生二进制与 Harness 的 Node.js 24 运行时，并支持子进程、signal、HTTP 和 WebSocket | 不成立时需要替代 supervisor/runtime | [TECH-05] |
 | 依赖 | 原生 `dsh web` 构建产物 | dshd 不负责构建 Harness 前端和库产物 | [TECH-01] |
 
 # 8. 架构视图
@@ -374,7 +375,7 @@ approval、user questions、Session follow/control 和其他 stream 共用该 mu
 | Harness desired | `RUNNING \| STOPPED` | operator 对 Harness 的持久化运行意图；默认 RUNNING |
 | Harness observed | `STOPPED \| STARTING \| AUTHENTICATING \| READY \| UNHEALTHY \| STOPPING` | 当前 connection generation 的本地业务能力 |
 
-节点业务 readiness 只有在 `daemon=READY AND registration=LEASED AND desired=RUNNING AND observed=READY` 时成立。Docker/ECS 容器健康只调用 `/health/live` 检查 dshd event loop；`/health/local` 是 Harness 诊断而非容器 liveness，因此 STOPPED、UNHEALTHY、FENCED 或中央服务中断均不会仅凭 Harness/租约状态触发容器替换。[OPS-02][TECH-07]
+节点业务 readiness 只有在 `daemon=READY AND registration=LEASED AND desired=RUNNING AND observed=READY` 时成立。Docker/ECS 容器健康只调用 `/health/live` 检查 dshd 进程可响应；`/health/local` 是 Harness 诊断而非容器 liveness，因此 STOPPED、UNHEALTHY、FENCED 或中央服务中断均不会仅凭 Harness/租约状态触发容器替换。[OPS-02][TECH-07]
 
 ```mermaid
 stateDiagram-v2
@@ -451,7 +452,7 @@ sequenceDiagram
 | `/api/**` | dshd proxy → Harness | HTTP | 保留 Harness 原始 API 与 Fetch route | [TECH-02][TECH-04] |
 | `/api/remote.mux` | dshd proxy → Harness | WebSocket | 保留 Harness multiplexed stream | [TECH-02] |
 | `/daemon/v1/status` | dshd | HTTP JSON | dshd/Harness 当前状态、generation、PID、版本、uptime、最近错误 | [PRD-01][TECH-06] |
-| `/daemon/v1/health/live` | dshd | HTTP JSON | dshd event loop 可响应；供 Docker/ECS container health 使用 | [PRD-01][OPS-01] |
+| `/daemon/v1/health/live` | dshd | HTTP JSON | dshd 进程可响应；供 Docker/ECS container health 使用 | [PRD-01][OPS-01] |
 | `/daemon/v1/health/local` | dshd | HTTP JSON | 本地 Harness generation 可用，不依赖中央租约；仅作诊断与告警 | [PRD-01][OPS-01] |
 | `/daemon/v1/health/ready` | dshd | HTTP JSON | daemon READY、租约有效、desired RUNNING 且 observed READY；供中央服务反向 readiness probe 使用 | [PRD-01][OPS-02] |
 | `/daemon/v1/harness/start` | dshd | HTTP | 持久化 desired=RUNNING，并从 STOPPED/UNHEALTHY 启动；幂等返回 operation | [PRD-01] |
@@ -520,7 +521,7 @@ sequenceDiagram
 | 健康语义 | live 表示 dshd 存活并作为容器 health；local 仅诊断本地 Harness；ready 表示租约、desired 与 Harness 均可接受中央业务 | [PRD-01][OPS-02] |
 | 发布 | dshd 与兼容 Harness 版本成对构建、测试和发布 | [TECH-02][TECH-03] |
 | 回滚 | 回滚到上一组已验证的 dshd + Harness 版本组合 | [TECH-02][TECH-03] |
-| 镜像 | 单一镜像内固定 dshd、Harness、Node.js 和依赖版本；启动阶段不下载代码 | [PRD-01][OPS-01] |
+| 镜像 | 单一镜像内固定 dshd 二进制、Harness、Node.js 和依赖版本；启动阶段不下载代码 | [PRD-01][OPS-01] |
 | 持久化 | 容器可替换；`/var/lib/dsh` 与 `/workspace` 生命周期独立于容器；同一逻辑节点替换期间保持单写挂载 | [PRD-01][OPS-01][TECH-08] |
 | 健康检查 | Docker/ECS container health 调用当前 dshd service port 的 `/daemon/v1/health/live`；Harness 告警调用 `/health/local`；中央服务通过 `advertise_url` 调用 `/health/ready` | [OPS-01][OPS-02] |
 
@@ -577,7 +578,7 @@ sequenceDiagram
 | 启动和守护 Harness | Process Supervisor + Bootstrap/Auth | ADR-HLD-002 | crash/restart/shutdown 测试 | [TECH-01][TECH-05] |
 | 对外提供 API 层 | dshd API Listener、HTTP/WS Proxy、Management API | ADR-HLD-003、ADR-HLD-005 | HTTP/WS 契约测试 | [TECH-02][TECH-04] |
 | 节点状态与运维信息 | status/heartbeat 固定指标 + container stdout/stderr，无隐藏 metrics/log API | ADR-HLD-005 | 管理 API、字段和日志脱敏测试 | [TECH-06][TECH-07] |
-| Docker 镜像发布 | 单镜像包含 dshd、Harness、Node.js 和 init | ADR-HLD-006 | image inspection、冷启动 E2E | [PRD-01][OPS-01] |
+| Docker 镜像发布 | 单镜像包含 dshd 二进制、Harness、Node.js 和 init | ADR-HLD-006 | image inspection、冷启动 E2E | [PRD-01][OPS-01] |
 | 目录和权限控制 | 非 root + read-only rootfs + 两个 RW volume + tmpfs | ADR-HLD-008 | UID/GID、权限矩阵与 sandbox parity 测试 | [PRD-01][OPS-01] |
 | 端口设计 | 只发布配置的 dshd service port；Harness 动态 loopback；8080 为默认值 | ADR-HLD-007 | 配置矩阵、端口扫描、HTTP/WS/health E2E | [OPS-01] |
 | dshd 管理边界 | 只管理同容器内一个 Harness | ADR-HLD-009 | 多进程防护、无 Docker socket 检查 | [PRD-01][OPS-01] |
@@ -598,21 +599,21 @@ sequenceDiagram
 
 | 标记 | 来源 | 说明 |
 | --- | --- | --- |
-| [PRD-01] | [MVP 基线](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/mvp-baseline.md) | 已冻结的产品范围、能力口径和非改造约束 |
+| [PRD-01] | [MVP 基线](mvp-baseline.md) | 已冻结的产品范围、能力口径和非改造约束 |
 | [TECH-01] | [DeepSeek Harness Web App README](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/bundle/web-app/README.md) | Web profile 启动、配置和 readiness 行为 |
 | [TECH-02] | [Client Connection README](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/client/connection/README.md) | HTTP/WS transport、认证、Host/Origin 与安全边界 |
 | [TECH-03] | [API Remotes](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/api/remotes/src/client/index.ts) 与 [Remote Events](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/api/remotes/src/remote-events.ts) | 官方 Web Client 的 Remote 与事件装配 |
 | [TECH-04] | [Session Log Export](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/session-query/session-log-export/README.md) | GET/HEAD 流式 Session ZIP route |
 | [TECH-05] | [CLI Process Shutdown](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/apps/cli/src/process-shutdown.ts) | SIGTERM、有界 dispose 与进程退出行为 |
-| [TECH-06] | [Harness API 暴露审计](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/dsh/harness-api-exposure-audit.md) | 已暴露、部分暴露和未暴露能力边界 |
-| [TECH-07] | [中央服务—dshd 接口规范](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/interfaces/central-dshd-interface-spec.md) | 双向 API、字段、状态、鉴权、幂等、错误、重试和验收基线 |
-| [TECH-08] | [分布式 Harness 可行性分析](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/distributed-harness-feasibility.md) 与 [JSONL Persistence](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/session/session-persistence-jsonl/README.md#L150) | DSH_HOME/Session 单 live writer 约束及共享多活风险 |
+| [TECH-06] | [Harness API 暴露审计](dsh/harness-api-exposure-audit.md) | 已暴露、部分暴露和未暴露能力边界 |
+| [TECH-07] | [中央服务—dshd 接口规范](interfaces/central-dshd-interface-spec.md) | 双向 API、字段、状态、鉴权、幂等、错误、重试和验收基线 |
+| [TECH-08] | [分布式 Harness 可行性分析](distributed-harness-feasibility.md) 与 [JSONL Persistence](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/packages/session/session-persistence-jsonl/README.md#L150) | DSH_HOME/Session 单 live writer 约束及共享多活风险 |
 | [TECH-09] | [CLI 共享部署行为](https://github.com/deepseek-ai/deepseek-harness/blob/cd5ef8148158c3a752a658978873241fdf8e2bbc/apps/cli/reference/README.zh.md#L90-L94) | Web profile 默认反馈门控遥测及未脱敏出站内容 |
-| [TECH-10] | [Web 能力冻结基线](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/dsh/harness-web-capability-baseline.md)与[机器能力清单](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/contracts/harness-web-capabilities.yaml) | 官方 Web UI、dshd 补齐和 MVP 排除能力的稳定 ID 与逐项验收规则 |
+| [TECH-10] | [Web 能力冻结基线](dsh/harness-web-capability-baseline.md)与[机器能力清单](contracts/harness-web-capabilities.yaml) | 官方 Web UI、dshd 补齐和 MVP 排除能力的稳定 ID 与逐项验收规则 |
 | [OPS-01] | 用户确认的 Docker 发布约束（2026-08-29） | 后端以 Docker 镜像发布；需明确目录、权限和端口；dshd 只管理同容器 Harness |
 | [OPS-02] | 用户确认的中央服务—后端关系约束（2026-08-29） | dshd 是后端服务统一控制点，负责与中央服务交互；需明确双方关系与边界 |
 | [OPS-03] | 用户提出的服务界面设计要求（2026-08-29） | 完成中央服务与后端节点之间的服务接口设计 |
-| [OPS-04] | [后端设计独立验收](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/acceptance/backend-independent-acceptance.md) | 设计一致性、协议硬度、单写、路由和隐私问题清单 |
+| [OPS-04] | [后端设计独立验收](acceptance/backend-independent-acceptance.md) | 设计一致性、协议硬度、单写、路由和隐私问题清单 |
 | [M01] | ISO/IEC/IEEE 42010 Architecture Descriptions | 系统边界与架构描述方法 |
 | [M05] | C4 Model | 上下文、容器、组件和运行时视图方法 |
 | [M09] | Martin Fowler, Architecture Decision Record | 架构决策、理由和后果记录方法 |

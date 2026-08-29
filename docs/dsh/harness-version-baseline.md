@@ -5,6 +5,7 @@
 | v1.0 | 2026-08-29 | Agent | 冻结 dshd MVP 使用的原生 DeepSeek Harness 源码、依赖锁和 Node.js/pnpm 工具链基线，并定义升级门禁。 | 用户要求、[SRC-01][SRC-02][ARCH-01][ACCEPT-01] |
 | v1.1 | 2026-08-29 | Agent | 将固定源码版本与 `WUI-*` Web 能力机器清单建立一一对应的升级和验收关系。 | 用户要求、[CAPABILITY-01][ARCH-01][ACCEPT-01] |
 | v1.2 | 2026-08-29 | Agent | 将冻结源码整理为无嵌套 Git 的 `dsh/` 快照，并更新本地校验方式和文档路径；冻结内容不变。 | 用户要求、[SRC-01][SRC-02] |
+| v1.3 | 2026-08-29 | Agent | 按 dshd 技术栈变更补充边界说明：dshd 自身以版本固定的 Rust 工具链与 `Cargo.lock` 构建，不属于本文件冻结的 Harness 工具链范围；Harness 冻结内容不变。 | 用户明确指令、[ARCH-01] |
 
 # DeepSeek Harness MVP 版本冻结基线
 
@@ -42,7 +43,7 @@ Node.js 24 是本项目容器工具链选择；原生仓库声明兼容 `^22.19.
 
 `dsh/` 是不含 `.git` 的固定源码快照，保持只读，不在其中开发 dshd。项目以已记录 commit/tree/tag、lockfile 哈希和发布清单证明其来源；Docker 多阶段构建只消费该固定输入。禁止在 Docker build 中无校验地 clone 分支、tag 浮动引用或 `latest`，禁止在容器启动时执行 `npx`/`pnpm install`。[ARCH-01]
 
-dshd 是项目自有实现，独立拥有源代码、测试、Dockerfile 和发布版本。dshd 版本与 Harness 基线通过兼容矩阵成对发布，例如 `dshd 0.1.x ↔ Harness dsh-v0.1.2-alpha.1`；不得单独替换容器内 Harness 而不重新执行兼容验收。[ARCH-01][CONTRACT-01]
+dshd 是项目自有实现，独立拥有源代码、测试、Dockerfile 和发布版本；dshd 自身以版本固定的 Rust 工具链与 `Cargo.lock` 构建，其工具链版本记录于 dshd 服务设计基线，不属于本文件冻结的 Harness 工具链范围。dshd 版本与 Harness 基线通过兼容矩阵成对发布，例如 `dshd 0.1.x ↔ Harness dsh-v0.1.2-alpha.1`；不得单独替换容器内 Harness 而不重新执行兼容验收。[ARCH-01][CONTRACT-01]
 
 ## 4. 版本升级门禁
 

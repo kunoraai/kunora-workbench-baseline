@@ -21,5 +21,6 @@
 | [contracts/](contracts/) | OpenAPI、机器能力清单、一致性向量和契约验证器 |
 | [reviews/](reviews/) | GAP 与设计复核材料 |
 | [acceptance/](acceptance/) | 后端独立验收记录 |
+| [milestones/](milestones/) | 里程碑级冻结六要素与计划文档（从属于路线图级六要素） |
 
 总体目标、边界和路线图以本目录根部的冻结基线、后端节点 HLD 与 dshd 总体方案为准；模块文档不得自行扩大范围或改变冻结语义。

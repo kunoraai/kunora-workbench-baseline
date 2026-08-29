@@ -10,6 +10,7 @@
 | v0.6 | 2026-08-29 | Agent | 明确 Registry/Management 相反调用方向，固化 advertise URL/中央 URL 配置来源、非 root listener 范围和 reference stub 验收边界。 | 用户要求、[HLD-01][OPS-04][CONTRACT-01] |
 | v0.7 | 2026-08-29 | Agent | 将官方 Web UI 后端能力验收绑定到稳定 `WUI-*` 清单，避免以路径存在或抽样演示替代完整 parity。 | 用户要求、[HLD-01][CAPABILITY-01][CONTRACT-01] |
 | v0.8 | 2026-08-29 | Agent | 随工作区模块化整理更新接口、契约、能力和源码引用路径；协议语义不变。 | 用户要求、[HLD-01][CONTRACT-01] |
+| v0.9 | 2026-08-29 | Agent | 修复参考文献中的失效本地绝对路径为仓库相对路径，并将 `/health/live` 语义措辞统一为“dshd 进程可响应”（liveness 行为语义不变）；接口定义不变。 | 仓库一致性维护、[CONTRACT-01] |
 
 # 1. 文档目标
 
@@ -342,7 +343,7 @@ Authorization: Bearer <node_token>
 
 | 方法与路径 | 鉴权 | 成功 | 失败 | 语义 |
 | --- | --- | --- | --- | --- |
-| `GET /daemon/v1/health/live` | 不要求 | `200 {"status":"live"}` | 进程不可响应 | 只表示 dshd event loop 可响应；Docker/ECS container health 使用 |
+| `GET /daemon/v1/health/live` | 不要求 | `200 {"status":"live"}` | 进程不可响应 | 只表示 dshd 进程可响应；Docker/ECS container health 使用 |
 | `GET /daemon/v1/health/local` | 不要求 | `200 {"status":"local","generation":N}` | `503 {"status":"not_local"}` | 表示本地 Harness generation 可用；不依赖租约；仅作诊断和告警 |
 | `GET /daemon/v1/health/ready` | 不要求 | `200 {"status":"ready","generation":N}` | `503 {"status":"not_ready","reason":"..."}` | 表示 daemon READY、registration LEASED、Harness desired RUNNING 且 observed READY；中央服务反向 probe 使用 |
 
@@ -724,10 +725,10 @@ sequenceDiagram
 
 | 标记 | 来源 | 说明 |
 | --- | --- | --- |
-| [HLD-01] | [后端节点 HLD](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/backend-node-hld.md) | 已冻结的节点架构、Docker 边界、中央服务—dshd 关系和状态所有权 |
-| [TECH-01] | [Harness API 暴露审计](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/dsh/harness-api-exposure-audit.md) | 官方 Web UI 使用的 HTTP、WebSocket、事件和下载能力基线 |
-| [TECH-02] | [Session Controller Types](C:/Users/54256213/Documents/codex-projects/deepseek-harness/dsh/packages/api/session-controller/src/types.ts) 与 [Commands](C:/Users/54256213/Documents/codex-projects/deepseek-harness/dsh/packages/api/session-controller/src/commands.ts) | `SessionCreateRequest.sessionId` 和幂等 create/adopt 行为 |
+| [HLD-01] | [后端节点 HLD](../backend-node-hld.md) | 已冻结的节点架构、Docker 边界、中央服务—dshd 关系和状态所有权 |
+| [TECH-01] | [Harness API 暴露审计](../dsh/harness-api-exposure-audit.md) | 官方 Web UI 使用的 HTTP、WebSocket、事件和下载能力基线 |
+| [TECH-02] | [Session Controller Types](../../dsh/packages/api/session-controller/src/types.ts) 与 [Commands](../../dsh/packages/api/session-controller/src/commands.ts) | `SessionCreateRequest.sessionId` 和幂等 create/adopt 行为 |
 | [OPS-03] | 用户提出的服务界面设计要求（2026-08-29） | 完成后端节点与中央服务之间的服务接口设计 |
-| [OPS-04] | [后端设计独立验收](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/acceptance/backend-independent-acceptance.md) | 单写、状态、Session 路由、代理、机器契约、遥测和文档一致性问题 |
-| [CONTRACT-01] | [OpenAPI 3.1](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/contracts/central-dshd-openapi.yaml)、[一致性测试规范](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/contracts/central-dshd-conformance.md)与[契约验证器](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/contracts/validate_contracts.py) | Registry/Management schema、透明代理/故障行为测试向量与持续一致性校验 |
-| [CAPABILITY-01] | [Web 能力冻结基线](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/dsh/harness-web-capability-baseline.md)与[机器能力清单](C:/Users/54256213/Documents/codex-projects/deepseek-harness/docs/contracts/harness-web-capabilities.yaml) | 官方 Web UI、dshd 补齐和 MVP 排除能力的稳定 ID 与逐项验收规则 |
+| [OPS-04] | [后端设计独立验收](../acceptance/backend-independent-acceptance.md) | 单写、状态、Session 路由、代理、机器契约、遥测和文档一致性问题 |
+| [CONTRACT-01] | [OpenAPI 3.1](../contracts/central-dshd-openapi.yaml)、[一致性测试规范](../contracts/central-dshd-conformance.md)与[契约验证器](../contracts/validate_contracts.py) | Registry/Management schema、透明代理/故障行为测试向量与持续一致性校验 |
+| [CAPABILITY-01] | [Web 能力冻结基线](../dsh/harness-web-capability-baseline.md)与[机器能力清单](../contracts/harness-web-capabilities.yaml) | 官方 Web UI、dshd 补齐和 MVP 排除能力的稳定 ID 与逐项验收规则 |

@@ -10,6 +10,7 @@
 | v1.0 | 2026-08-29 | Agent | 经复验通过后，正式冻结 dshd 路线图六要素；本次不改变六要素正文，仅固化其基线状态和变更控制规则。 | 用户确认、[DELIVERY-01][PRD-01][ARCH-01][IFACE-01][TEST-01][ACCEPT-01] |
 | v1.1 | 2026-08-29 | Agent | 在不改变冻结六要素的前提下，补齐 Web 能力基线、验收资产阶段归属、无歧义阶段依赖和 M7 ECS 环境前置门禁。 | 用户要求、[CAPABILITY-01][DELIVERY-01][ARCH-01][TEST-01][ACCEPT-01] |
 | v1.2 | 2026-08-29 | Agent | 随工作区整理更新冻结源码和模块文档路径；六要素、总体方案和路线图语义不变。 | 用户要求、[FREEZE-01][CAPABILITY-01] |
+| v1.3 | 2026-08-29 | Agent | 按用户明确指令，dshd 实现技术栈由 Node.js 24 + TypeScript ESM 变更为 Rust 原生二进制；同步修订技术路线、并发实现、Docker 构建链、风险与 M1 工程形态及相关 ADR，固化 Rust 工具链锁定方式（`rust-toolchain.toml` + `Cargo.lock` 摘要入发布清单），并清理 Node 术语残留。节点架构、接口契约、行为语义与路线图六要素含义不变，不构成解冻。 | 用户明确指令、[ARCH-01][FREEZE-01] |
 
 # 1. 文档概述
 
@@ -19,7 +20,7 @@
 | --- | --- |
 | 系统对象 | Harness Node Daemon（`dshd`） |
 | 交付形态 | 与固定 Harness 共同发布的 Linux Docker 镜像 |
-| 技术栈 | Node.js 24、TypeScript ESM、HTTP/1.1、WebSocket RFC 6455 字节隧道 |
+| 技术栈 | Rust（版本固定的原生 Linux 二进制）、HTTP/1.1、WebSocket RFC 6455 字节隧道；容器内 Node.js 24 仅为受管 Harness 子进程运行时 |
 | 外部端口 | 一个可配置的 dshd TCP 服务端口，默认 `8080`；HTTP/WS/管理/健康共端口 |
 | 内部业务进程 | 一个由 dshd 管理的原生 `dsh web` 子进程 |
 | 最终产品交付 | 一个同时包含 dshd 与固定 dsh 的 OCI/Docker 镜像，以及完整使用说明 |
@@ -45,7 +46,7 @@ dshd 不实现全局节点选择、Session→Node 路由、终端用户授权、
 
 # 3. 架构摘要
 
-dshd 采用“单守护进程 + 单 Harness 子进程 + 单序列化状态协调器”的结构。Node.js event loop 承载管理、代理和中央客户端；所有会改变身份、lease、desired/observed state、generation 或 active connection 的事件进入同一个状态协调器，避免多个异步模块直接改写共享状态。[ARCH-01][IFACE-01]
+dshd 采用“单守护进程 + 单 Harness 子进程 + 单序列化状态协调器”的结构。单一 Rust 异步运行时承载管理、代理和中央客户端；所有会改变身份、lease、desired/observed state、generation 或 active connection 的事件进入同一个状态协调器，避免多个异步模块直接改写共享状态。[ARCH-01][IFACE-01]
 
 ```mermaid
 flowchart LR
@@ -126,29 +127,30 @@ flowchart LR
 | 约束 | `/var/lib/dsh` 是 single-attach RW volume | 存储写权不由中央 lease 替代 |
 | 假设 | 中央服务通过可信 ECS 私网访问 dshd 注册的 `advertise_url` | MVP 可用 HTTP + Bearer；不可信网络必须 TLS/mTLS |
 | 依赖 | `tini`、Node.js 24、`util-linux flock` | 镜像必须固定并验证这些 runtime 工具 |
+| 依赖 | Rust 工具链与 `Cargo.lock` | dshd 以 `rust-toolchain.toml` 固定的具体 Rust 版本构建（首次版本号在 M1 出口门禁时记录并保持向后可追踪），依赖闭包由 `Cargo.lock` 锁定，其摘要进入发布清单；运行镜像只携带编译产物，不含构建工具链 |
 | 依赖 | OpenAPI 3.1 与 66 个行为向量 | 代码和测试不得另建冲突契约 |
 
 # 8. 技术路线
 
 ## 8.1 语言与运行时
 
-dshd 使用 Node.js 24 + TypeScript ESM。该选择与冻结 Harness 的 Node 运行环境一致，可直接使用 `child_process`、stream、HTTP upgrade 和 AbortSignal；dshd 仍作为独立项目包，不导入 Harness 私有模块，双方只通过 CLI/stdout/HTTP/WS 契约通信。[FREEZE-01][TECH-01][ARCH-01]
+dshd 使用 Rust 实现并编译为单一原生 Linux 二进制。该选择消除 dshd 自身的运行时解释层与运行期下载，并与中央服务的实现语言保持一致；容器内 Node.js 24 仍仅为受管 `dsh web` 子进程提供运行时。dshd 通过标准 OS 子进程接口、signal、socket 与文件系统获得同等的进程与传输控制能力；dshd 仍作为独立项目，不导入 Harness 私有模块，双方只通过 CLI/stdout/HTTP/WS 契约通信。[FREEZE-01][TECH-01][ARCH-01]
 
 ## 8.2 网络实现
 
-- 入站 server 使用 `node:http`，保持 HTTP/1.1 streaming、upgrade、header 和响应提交点的直接控制；
-- Harness 上游 HTTP 使用 `node:http.request`，不使用会自动重试、自动重定向或完整缓冲 body 的高级客户端；
-- WebSocket 不使用会终止 RFC 6455 协议的高层库。入站由 `node:http` 捕获 `upgrade`，上游由 `node:http.request` 完成受控 Upgrade；两端都成功后直接 `socket.pipe` 双向转发 upgrade head 和后续字节，dshd 不解析 frame、不重组 message、不响应 ping/pong。只有 generation、lease 或 FENCED 变化时，先停止隧道，再由最小 close-frame encoder 按 client/server masking 规则分别发送契约规定的策略 close；
-- Registry/heartbeat 是小型 JSON 控制请求，可以使用显式 timeout/AbortSignal 的 HTTPS client；
+- 入站 server 使用具备 HTTP/1.1 streaming、upgrade、header 和响应提交点直接控制能力的 Rust 低层 HTTP 实现（tokio + hyper 或等价栈），不依赖会自动重试、自动重定向或完整缓冲 body 的框架默认行为；
+- Harness 上游 HTTP 使用同一栈的低层 client，显式单次尝试，不使用会自动重试、自动重定向或完整缓冲 body 的高级客户端；
+- WebSocket 不使用会终止 RFC 6455 协议的高层库。入站在 server 侧捕获 `upgrade`，上游以受控请求完成 Upgrade；两端都成功后直接以异步双向 IO 转发（如 `copy_bidirectional` 或等价）upgrade head 和后续字节，dshd 不解析 frame、不重组 message、不响应 ping/pong。只有 generation、lease 或 FENCED 变化时，先停止隧道，再由最小 close-frame encoder 按 client/server masking 规则分别发送契约规定的策略 close；
+- Registry/heartbeat 是小型 JSON 控制请求，可以使用显式 timeout 与取消令牌的 HTTPS client；
 - 路由只区分公开 health、鉴权 management、`/api/remote.mux` upgrade 和其他 `/api/**`，不复刻 Harness 业务路由表。[IFACE-01]
 
 ## 8.3 Schema 与类型
 
-OpenAPI 3.1 是 Registry/Management DTO 和错误结构的机器权威。构建阶段生成 TypeScript 类型；运行时使用支持 Draft 2020-12 的 schema validator 校验控制 JSON。RFC 8785 JCS 采用经过测试的标准实现，不手写浮点和 Unicode canonicalization。透明 Harness payload 保持 opaque，不进入 DTO 生成。[OPENAPI-01][IFACE-01]
+OpenAPI 3.1 是 Registry/Management DTO 和错误结构的机器权威。构建阶段生成 Rust 类型；运行时使用支持 Draft 2020-12 的 schema validator 校验控制 JSON。RFC 8785 JCS 采用经过测试的标准 Rust 实现，不手写浮点和 Unicode canonicalization。透明 Harness payload 保持 opaque，不进入 DTO 生成。[OPENAPI-01][IFACE-01]
 
 ## 8.4 进程和锁
 
-dshd 通过 `child_process.spawn` 启动：
+dshd 通过标准 OS 子进程接口（如 `std::process`/异步 process spawn）启动：
 
 ```text
 flock --nonblock --no-fork /var/lib/dsh/dshd/writer.lock \
@@ -182,7 +184,7 @@ dshd 不引入数据库。低频控制状态使用版本化 JSON 文件、同目
 | Operation Store | lifecycle operation | durable operation、JCS fingerprint、24h retention | 不保存 Session 操作 |
 | Observability | state/proxy/process events | status snapshot、heartbeat metrics、JSON logs | 不提供日志读取或 `/metrics` API |
 
-建议项目源代码按模块边界组织为 `dshd/src/{config,identity,state,lifecycle,supervisor,harness,transport,proxy,central,operations,observability}`，测试分为 `unit/contract/integration/e2e`。该布局属于 dshd 自有仓库，不写入冻结的 `dsh/`。[FREEZE-01]
+建议项目源代码按模块边界组织为 Rust 模块/crate（如 `dshd/src/{config,identity,state,lifecycle,supervisor,harness,transport,proxy,central,operations,observability}` 或等价 crate 划分），测试分为 `unit/contract/integration/e2e`。该布局属于 dshd 自有仓库，不写入冻结的 `dsh/`。[FREEZE-01]
 
 # 10. 运行时设计
 
@@ -216,11 +218,11 @@ sequenceDiagram
   D->>S: daemon READY
 ```
 
-身份/配置错误在 listener 和 Harness 前 fail closed；中央不可达不阻塞本地 Harness 启动。listener 启动后 `/health/live` 表示 dshd event loop 存活，业务 ready 仍取决于 lease 和 Harness observed state。[IFACE-01]
+身份/配置错误在 listener 和 Harness 前 fail closed；中央不可达不阻塞本地 Harness 启动。listener 启动后 `/health/live` 表示 dshd 进程可响应，业务 ready 仍取决于 lease 和 Harness observed state。[IFACE-01]
 
 ## 10.2 状态并发模型
 
-所有异步输入转换为 typed event：API command、child stdout/exit、bootstrap result、timer、register/heartbeat result、lease deadline 和 OS signal。State Coordinator 使用单一 promise queue 顺序处理；每次迁移产生新 immutable snapshot，并向 supervisor、proxy、central client 和 observability 发布变更通知。
+所有异步输入转换为 typed event：API command、child stdout/exit、bootstrap result、timer、register/heartbeat result、lease deadline 和 OS signal。State Coordinator 作为单一协调任务以有界消息队列串行处理；每次迁移产生新 immutable snapshot，并向 supervisor、proxy、central client 和 observability 发布变更通知。
 
 代理请求开始时捕获当前 lease/generation/context snapshot，同时向 coordinator 注册 cancellation handle。lease deadline、FENCED 或 generation 撤销由 coordinator 在同一迁移中先拒绝新请求，再取消 active HTTP 和关闭 WS，从而消除“状态已失效但连接仍接收新业务”的窗口。[IFACE-01][TEST-01]
 
@@ -291,7 +293,7 @@ dshd 不接收终端用户 credential，也不实施终端用户权限判断；�
 | Crash recovery | desired=RUNNING 且未 FENCED 时按 1/2/4…30 秒、20% jitter 重试，稳定 5 分钟后清零 |
 | Start/stop timeout | startup 60 秒；SIGTERM 8 秒后 SIGKILL；operation 10 秒内停止收敛 |
 | Lease | monotonic deadline；乱序/迟到响应不能延长；到期原子撤回业务 |
-| HTTP | 一次请求一次 Harness 尝试；stream/backpressure/AbortSignal；已提交响应只终止流 |
+| HTTP | 一次请求一次 Harness 尝试；stream/backpressure/显式取消令牌；已提交响应只终止流 |
 | WebSocket | 一个外部连接绑定一个 generation；握手后原始 socket 字节隧道；Harness 保有 ping/pong/close owner；generation/lease/FENCED 时 dshd 终止隧道并按契约关闭外部连接 |
 | 存储 | single-attach 防跨 task 双写，flock 防同挂载重复进程 |
 | 过载 | MVP 不生成应用层 429；依赖 socket/resource 上限、backpressure 和目标压测确定容量 |
@@ -302,7 +304,7 @@ dshd 不接收终端用户 credential，也不实施终端用户权限判断；�
 
 ## 14.1 Docker 交付
 
-采用多阶段构建：Harness builder 按冻结 commit/lockfile 构建固定产物；dshd builder 编译 TypeScript 并运行 unit/contract test；runtime stage 只包含 Node.js、tini、flock、dshd、Harness runtime closure 和必要 CA。runtime 使用 `USER 10001:10001`、只读 rootfs，`ENTRYPOINT ["tini","--","dshd"]`。镜像可用 `EXPOSE 8080` 描述默认 listener；运行环境只能 publish/map 该 dshd listener，并让 security group 和 `advertise_url` 指向中央实际可达的映射端点；不得发布任何 Harness 端口。HEALTHCHECK 调用容器内当前 dshd listener 的 `/daemon/v1/health/live`。[ARCH-01][FREEZE-01]
+采用多阶段构建：Harness builder 按冻结 commit/lockfile 构建固定产物；dshd builder 以版本固定的 Rust 工具链和 `Cargo.lock` 编译 dshd 原生二进制并运行 unit/contract test；runtime stage 只包含 Node.js、tini、flock、dshd 二进制、Harness runtime closure 和必要 CA。runtime 使用 `USER 10001:10001`、只读 rootfs，`ENTRYPOINT ["tini","--","dshd"]`。镜像可用 `EXPOSE 8080` 描述默认 listener；运行环境只能 publish/map 该 dshd listener，并让 security group 和 `advertise_url` 指向中央实际可达的映射端点；不得发布任何 Harness 端口。HEALTHCHECK 调用容器内当前 dshd listener 的 `/daemon/v1/health/live`。[ARCH-01][FREEZE-01]
 
 ## 14.2 日志与指标
 
@@ -310,17 +312,17 @@ dshd 不接收终端用户 credential，也不实施终端用户权限判断；�
 
 ## 14.3 发布与回滚
 
-发布物以 `dshd version + Harness baseline + image digest` 三元组标识。CI 生成 SBOM、镜像 digest 和兼容矩阵；部署只引用 digest。回滚必须回滚完整三元组，不能只替换 dshd 或 Harness。数据文件 schema 只允许向前兼容读取；任何破坏性 migration 必须在后续版本单独设计。[FREEZE-01][ARCH-01]
+发布物以 `dshd version + Harness baseline + image digest` 三元组标识。CI 生成 SBOM、镜像 digest、`Cargo.lock` 摘要和兼容矩阵；部署只引用 digest。回滚必须回滚完整三元组，不能只替换 dshd 或 Harness。数据文件 schema 只允许向前兼容读取；任何破坏性 migration 必须在后续版本单独设计。[FREEZE-01][ARCH-01]
 
 # 15. 架构决策与权衡
 
 | 决策 | 选择 | 主要理由 | 接受的代价 |
 | --- | --- | --- | --- |
-| DSHD-ADR-001 | Node.js 24 + TypeScript ESM | 与 Harness runtime 对齐，适合 child/stream/HTTP/WS | CPU 密集逻辑需避免阻塞 event loop |
+| DSHD-ADR-001 | Rust 单一原生二进制 | 无运行时解释层与运行期下载、内存安全、与中央服务同语言栈、部署面最小；Node.js 24 仍由镜像携带并专用于 Harness 子进程 | 与 Harness 运行时不同构；须在 Rust 栈中等价实现低层 HTTP/WS 的流式、Upgrade、取消与提交点控制保证 |
 | DSHD-ADR-002 | dshd 独立包，`dsh/` 冻结快照只读 | 保持“不改 Harness”和升级审计 | 需要单独发布/兼容矩阵 |
 | DSHD-ADR-003 | 单进程、单状态协调器 | 状态和竞态 owner 唯一 | coordinator 需保持小而纯 |
-| DSHD-ADR-004 | `node:http` 原生 streaming proxy | 精确控制 header、cancel、commit 和 retry | 路由/错误处理需自行封装 |
-| DSHD-ADR-005 | `node:http` 双端 Upgrade + raw socket tunnel | 真正保持 Harness frame、fragment、ping/pong 和 close owner | 握手失败映射、半关闭和 backpressure 测试复杂 |
+| DSHD-ADR-004 | Rust 低层 streaming proxy（tokio + hyper 或等价） | 精确控制 header、cancel、commit 和 retry | 路由/错误处理需自行封装 |
+| DSHD-ADR-005 | Rust 双端受控 Upgrade + raw socket tunnel | 真正保持 Harness frame、fragment、ping/pong 和 close owner | 握手失败映射、半关闭和 backpressure 测试复杂 |
 | DSHD-ADR-006 | 原子 JSON 文件，不引入 DB | 状态低频、部署简单、volume 已存在 | 查询和 retention 逻辑自行维护 |
 | DSHD-ADR-007 | util-linux flock + single-attach | 无自制 native addon，职责分层清楚 | 运行镜像依赖 Linux util-linux |
 | DSHD-ADR-008 | OpenAPI 生成类型 + runtime schema | 独立团队兼容实现、负例可执行 | 构建链增加生成和 drift gate |
@@ -331,8 +333,9 @@ dshd 不接收终端用户 credential，也不实施终端用户权限判断；�
 | --- | --- | --- | --- |
 | 前置决策 | Harness 已整理为无嵌套 Git 的 `dsh/` 固定快照 | M1 直接消费冻结快照，并在构建中校验来源记录与 lockfile 哈希 | 已完成 |
 | 风险 | `flock --no-fork` 在目标 runtime 的具体 util-linux 版本行为 | 镜像启动测试、PID/signal/lock E2E | 待验证 |
-| 风险 | Node socket 隧道在 upgrade head、半关闭和 backpressure 上处理不当 | 禁止高层 WebSocket termination；执行 PX-09/PX-10 和慢消费者/断连故障注入 | 待验证 |
-| 风险 | Node stream/代理库对 trailer、abort、partial response 的行为差异 | fault-injection proxy test | 待验证 |
+| 风险 | Rust socket 隧道在 upgrade head、半关闭和 backpressure 上处理不当 | 禁止高层 WebSocket termination；执行 PX-09/PX-10 和慢消费者/断连故障注入 | 待验证 |
+| 风险 | Rust HTTP/流栈对 trailer、abort、partial response 的行为差异 | fault-injection proxy test | 待验证 |
+| 风险 | OpenAPI→Rust 类型生成与 Draft 2020-12 校验链的生态成熟度低于 TypeScript 生态 | M1 建立生成与 drift gate 时先行验证；必要时以受控自定义生成器替代，正反例全部进入 contract CI | 待验证 |
 | 风险 | Harness developer preview 后续破坏接口 | 固定基线、升级门禁、成对发布 | 已控制 |
 | 技术债 | 66 个行为向量尚无 runner | M1 建立 runner/reference stub 骨架，M2～M6 增量补齐，M7 出口前完成并冻结 | 待开发 |
 | 未知 | 性能容量和 ECS 规格 | M7 先冻结目标环境清单并验证架构前提；容量数值由该环境压测产生 | 待测量 |
@@ -434,7 +437,7 @@ dshd 不接收终端用户 credential，也不实施终端用户权限判断；�
 | 阶段 | 直接依赖 | 工作重点 | 出口门禁/阶段结果 |
 | --- | --- | --- | --- |
 | M0 Harness 与能力冻结 | 无 | 固定 tag/commit/tree/lockfile/toolchain；冻结 [CAPABILITY-01] 的 `WUI-*`、`DSHD-*`、`OUT-*` 集合 | Harness 基线与机器能力清单可重复校验；当前已完成 |
-| M1 工程与验收基础 | M0 | dshd TypeScript 工程、依赖锁、OpenAPI 生成、lint/typecheck/unit/contract CI、Docker skeleton；建立 fake Harness、中央 reference stub、66-vector runner 和能力覆盖报告骨架 | 产品工程与验收工具均可在 CI 启动；测试资产有独立版本和自检 |
+| M1 工程与验收基础 | M0 | dshd Rust 工程（Cargo workspace 与 `Cargo.lock`）、OpenAPI 生成、lint/typecheck/unit/contract CI、Docker skeleton；建立 fake Harness、中央 reference stub、66-vector runner 和能力覆盖报告骨架 | 产品工程与验收工具均可在 CI 启动；测试资产有独立版本和自检 |
 | M2 进程与认证 | M1 | state coordinator、supervisor、flock、desired state、ready URL、cookie exchange、probe、generation、crash recovery；补齐 ID/CF/ST 基础场景 | dshd 能可靠管理并连接真实 Harness；相关 runner 场景可执行 |
 | M3 管理面 | M2 | 单端口 router、Bearer、health/status、lifecycle、operation/idempotency；补齐管理面 CT/ST 场景 | dshd 单节点管理接口完整；M4/M5/M6 共用的 router、认证、snapshot 与 operation 契约稳定 |
 | M4 HTTP 代理 | M3 | `/api/**` 单次 streaming relay、header 隔离、backpressure、cancel、partial response；补齐对应 `WUI-*` inventory 与 PX 场景 | `WUI-*` 的 HTTP/Fetch 子集取得 inventory contract 证据，HTTP/export surface 可透明通过 |

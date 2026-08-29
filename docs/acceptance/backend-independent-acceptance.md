@@ -12,6 +12,7 @@
 | v1.7 | 2026-08-29 | Agent（设计基线维护） | 记录用户发现的职责措辞和固定 8080 问题；将端口修正为单一可配置 dshd service port。此项为一致性维护，不冒充新一轮独立验收。 | 用户澄清、修订后的基线/HLD/接口/OpenAPI |
 | v1.8 | 2026-08-29 | Agent（问题修复记录） | 记录六要素审查后的根因、统一解法和反例验证：接口方向、endpoint 来源、非特权端口、后端验收边界和 ECS 环境基线。此项仍不冒充独立验收。 | 用户要求、修订后的基线/HLD/接口/OpenAPI/conformance |
 | v1.9 | 2026-08-29 | Agent（问题修复记录） | 记录路线图复核后的共同根因和统一修复：能力基线、验收资产归属、阶段 DAG 与 M7 ECS 前置门禁。此项不冒充新的独立验收。 | 用户要求、[Web 能力冻结基线](../dsh/harness-web-capability-baseline.md)、修订后的路线图/HLD/接口/conformance/validator |
+| v2.0 | 2026-08-29 | Agent（设计基线维护） | 记录用户明确指令引起的 dshd 实现技术栈变更（Node.js → Rust）、修订范围、不变项与机器复验结果。此项不冒充新一轮独立验收。 | 用户明确指令、修订后的基线/HLD/接口/契约验证器实际输出 |
 
 # DeepSeek Harness 分布式后端设计独立验收报告
 
@@ -837,3 +838,46 @@ Conformance specification: 66 declared, 0 executed (implementation required)
 ## 17.4 修复后机器检查
 
 契约验证器实际结果为 `PASS`：能力清单固定为 21 个 `WUI-*`、4 个 `DSHD-*` 和 9 个 `OUT-*`；8 项路线图门禁通过；OpenAPI 保持 10 paths/42 schemas/179 local refs，16 项跨契约不变量保持通过；66 个行为向量继续诚实记录为 `declared, 0 executed`。该结果证明缺失能力 ID、旧阶段依赖、验收工具后置或环境冻结后置会被静态门禁发现，但不证明尚未实现的 dshd、镜像或运行 E2E 已通过。
+
+# 18. v2.0 实现技术栈变更维护记录（非独立验收）
+
+## 18.1 变更事实
+
+用户于 2026-08-29 明确指令：dshd 必须使用 Rust 开发实现。设计基线由 Node.js 24 + TypeScript ESM 变更为 Rust 原生二进制，修订范围：
+
+| 文件 | 版本 | 修订内容 |
+| --- | --- | --- |
+| dshd 服务设计 | v1.3 | 技术栈、§8 技术路线（网络/进程/持久化）、并发模型措辞、Docker 构建链、风险表、M1 工程形态、DSHD-ADR-001/004/005；固化 Rust 工具链锁定方式 |
+| 后端节点 HLD | v1.2 | 运行时假设、镜像组成表述、liveness 措辞 |
+| 产品定义 | v0.9 | §3.4 dshd 技术栈 |
+| Harness 版本冻结基线 | v1.3 | 澄清 Node.js/pnpm 冻结范围仅属 Harness 工具链 |
+| 中央服务—dshd 接口规范 | v0.9 | 参考文献路径修复与 liveness 措辞 |
+
+## 18.2 不变项
+
+- 路线图六要素（dshd 服务设计 §17.1）正文零修改，冻结状态与变更控制规则不变；
+- OpenAPI 3.1、66 个行为向量、状态机、错误模型、透明代理契约、能力 ID 集合全部不变；
+- 容器结构仍为 `tini → dshd → dsh web`；Node.js 24 继续由镜像携带，仅作为 Harness 子进程运行时；
+- `flock` 单写机制、单一可配置服务端口、非 root `10001:10001`、只读 rootfs、single-attach volume、desired/observed 分离等全部约束不变。
+
+## 18.3 修复后机器检查
+
+在 Python 虚拟环境按 `requirements-contracts.txt` 固定版本实际执行 `docs/contracts/validate_contracts.py`：
+
+```text
+Contract validation: PASS
+OpenAPI: 10 paths, 42 schemas, 179 local refs
+Examples: 9 schema-validated JSON blocks; 2 status variants accepted; 11 status negatives rejected
+Operations: 7 state/type variants accepted; 7 contradictory variants rejected
+Errors: 8 protected operations closed; 38 HTTP response mappings checked; 15 coded responses accepted; 8 wrong-code cases rejected
+Capabilities: 21 Harness-owned Web UI parity targets (proxy-only); 4 dshd-owned features to implement; 9 MVP exclusions (no implementation); 34 evidence anchors
+Cross-contract invariants: 16
+Roadmap gates: 8
+Conformance specification: 66 declared, 0 executed (implementation required)
+```
+
+同轮修复两份规范性文档参考文献中的失效本地绝对路径（原作者环境遗留），当前本地 Markdown 链接全部可达。
+
+## 18.4 状态边界
+
+本节为设计基线维护记录，不构成新一轮独立验收。v1.6 的独立通过结论覆盖的是变更前的设计包；该结论的架构、模块边界与协议判断在技术栈变更后仍被 §18.2 所列不变项承载，但 Rust 实现的运行行为、目标 ECS 兼容性、官方 Web UI parity 与性能容量仍分别由 VG-01～VG-03、66 个行为向量的实际执行和 M8 最终验收证明。新增实现风险（Rust 低层 HTTP/WS 栈行为、OpenAPI→Rust 生成链成熟度）已列入 dshd 服务设计 §16，并在 M1/M7 门禁验证。
