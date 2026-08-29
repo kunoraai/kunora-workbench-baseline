@@ -1,4 +1,8 @@
-use std::{collections::HashSet, fs, path::PathBuf};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    path::PathBuf,
+};
 #[derive(Clone)]
 struct Capability {
     id: String,
@@ -29,22 +33,63 @@ fn load(p: &PathBuf) -> Result<Vec<Capability>, String> {
     Ok(v)
 }
 fn validate(v: &[Capability]) -> Result<(), String> {
-    let mut ids = HashSet::new();
+    let mut expected = BTreeMap::new();
+    for n in 1..=21 {
+        expected.insert(format!("WUI-{n:03}"), "WUI");
+    }
+    for n in 1..=4 {
+        expected.insert(format!("DSHD-{n:03}"), "DSHD");
+    }
+    for n in 1..=9 {
+        expected.insert(format!("OUT-{n:03}"), "OUT");
+    }
+    let mut ids = BTreeSet::new();
     for c in v {
         if !ids.insert(&c.id) {
             return Err(format!("duplicate {}", c.id));
         }
-        if !matches!(c.kind.as_str(), "WUI" | "DSHD" | "OUT") {
-            return Err(format!("unknown kind {}", c.kind));
+        let expected_kind = expected
+            .get(&c.id)
+            .ok_or_else(|| format!("unknown capability {}", c.id))?;
+        if c.kind != *expected_kind {
+            return Err(format!(
+                "wrong kind for {}: expected {expected_kind}, got {}",
+                c.id, c.kind
+            ));
+        }
+        if !matches!(c.status.as_str(), "DECLARED" | "COVERED" | "EXCLUDED") {
+            return Err(format!("illegal status {} for {}", c.status, c.id));
+        }
+        match c.status.as_str() {
+            "DECLARED" if !c.inventory.is_empty() || !c.parity.is_empty() => {
+                return Err(format!("declared capability has evidence {}", c.id));
+            }
+            "COVERED"
+                if c.kind == "OUT"
+                    || c.inventory.is_empty()
+                    || (c.kind == "WUI" && c.parity.is_empty()) =>
+            {
+                return Err(format!(
+                    "covered capability lacks consistent evidence {}",
+                    c.id
+                ));
+            }
+            "EXCLUDED" if c.kind != "OUT" || !c.inventory.is_empty() || !c.parity.is_empty() => {
+                return Err(format!("invalid exclusion {}", c.id));
+            }
+            _ => {}
         }
         if c.kind == "WUI" && (c.inventory.is_empty() != c.parity.is_empty()) {
             return Err(format!("partial evidence {}", c.id));
         }
     }
-    for (prefix, n) in [("WUI", 21), ("DSHD", 4), ("OUT", 9)] {
-        if v.iter().filter(|c| c.id.starts_with(prefix)).count() != n {
-            return Err(format!("{prefix} count mismatch"));
-        }
+    let expected_ids: BTreeSet<&String> = expected.keys().collect();
+    if ids != expected_ids {
+        return Err(format!(
+            "capability set mismatch: expected {}, got {}",
+            expected_ids.len(),
+            ids.len()
+        ));
     }
     Ok(())
 }
@@ -97,5 +142,24 @@ mod tests {
     fn inventory_exact() {
         let v = super::load(&super::default_inventory()).unwrap();
         super::validate(&v).unwrap();
+    }
+    #[test]
+    fn unknown_same_count_is_rejected() {
+        let mut v = super::load(&super::default_inventory()).unwrap();
+        v[0].id = "WUI-999".into();
+        assert!(super::validate(&v).is_err());
+    }
+    #[test]
+    fn wrong_kind_status_and_evidence_are_rejected() {
+        let base = super::load(&super::default_inventory()).unwrap();
+        for mutate in 0..3 {
+            let mut v = base.clone();
+            match mutate {
+                0 => v[0].kind = "DSHD".into(),
+                1 => v[0].status = "MAGIC".into(),
+                _ => v[0].inventory = "orphan".into(),
+            }
+            assert!(super::validate(&v).is_err());
+        }
     }
 }
