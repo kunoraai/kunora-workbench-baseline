@@ -73,7 +73,14 @@ ok('finding-fields', sevOk, 'each F## must contain 维度/严重度/位置/原�
 for (const ev of ['cargo test', 'self-test', 'drift', 'validate_contracts']) {
   ok(`evidence[${ev}]`, report.includes(ev), 'missing re-run evidence mention');
 }
-// 9b. R2 复审专属：F01-F12 处置核验与真实生成链证据
+// 9b. R3 复审专属：F13-F15 处置核验与稳定性/精确性证据
+for (const id of ['F13', 'F14', 'F15']) {
+  ok(`finding[${id}]`, report.includes(id), 'missing R2 finding disposition');
+}
+for (const ev of ['route_probe=13/13', 'golden', '10004', '10053']) {
+  ok(`r3-evidence[${ev}]`, report.includes(ev), 'missing r3 stability/exactness evidence mention');
+}
+// 9c. R2 复审：F01-F12 处置核验与真实生成链证据
 for (let i = 1; i <= 12; i++) {
   const id = `F${String(i).padStart(2, '0')}`;
   ok(`finding[${id}]`, report.includes(id), 'missing R1 finding disposition');
