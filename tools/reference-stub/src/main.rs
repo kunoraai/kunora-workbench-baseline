@@ -299,7 +299,7 @@ fn self_test() -> Result<(), String> {
     server_result.map_err(|error| format!("self-test server failed: {error}"))?;
     let passed = probe_result?;
     println!(
-        "SELF_TEST=PASS registry=http://{addr} client=register,heartbeat,deregister route_probe={passed}/{} PASS behavior=NOT_IMPLEMENTED vectors_executed=0",
+        "SELF_TEST=PASS registry=http://{addr} client=register,heartbeat,deregister route_probe={passed}/{} PASS behavior=NOT_IMPLEMENTED local_driver=scenario:unreachable,STALE_INSTANCE,FENCED vectors_executed=0",
         ROUTES.len()
     );
     Ok(())

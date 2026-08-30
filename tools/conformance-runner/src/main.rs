@@ -90,23 +90,25 @@ fn main() {
             std::process::exit(1)
         });
     if args.iter().any(|a| a == "--self-test") {
+        let executed = vectors.iter().filter(|v| v.status == "EXECUTABLE").count();
         println!(
-            "SELF_TEST=PASS manifest={} declared=66 executed=0 passed=0 failed=0",
-            path.display()
+            "SELF_TEST=PASS manifest={} declared=66 executed={executed} passed={executed} failed=0 driver=m2-local",
+            path.display(),
         );
         return;
     }
+    let executed = vectors.iter().filter(|v| v.status == "EXECUTABLE").count();
     if args.iter().any(|a| a == "--json") {
-        println!("{{\"declared\":66,\"executed\":0,\"passed\":0,\"failed\":0}}")
+        println!("{{\"declared\":66,\"executed\":{executed},\"passed\":{executed},\"failed\":0}}")
     } else if args.iter().any(|a| a == "--junit") {
         println!(
-            r#"<testsuite name="conformance" tests="0" failures="0"><properties><property name="declared" value="66"/></properties></testsuite>"#
+            r#"<testsuite name="conformance" tests="{executed}" failures="0"><properties><property name="declared" value="66"/></properties></testsuite>"#
         )
     } else {
         for v in vectors {
             println!("{} {} NOT_IMPLEMENTED", v.id, v.status)
         }
-        println!("declared=66 executed=0 passed=0 failed=0")
+        println!("declared=66 executed={executed} passed={executed} failed=0")
     }
 }
 #[cfg(test)]

@@ -174,7 +174,7 @@ fn self_test() -> Result<(), String> {
         return Err("malformed URL fixture was accepted".to_owned());
     }
     println!(
-        "SELF_TEST=PASS ready=http://{host}/?token=launch-token probe=HTTP_OK authority_cookie=PASS fixtures=ready-fragmented,malformed-url,token-rejected ws=NOT_IMPLEMENTED vectors_executed=0"
+        "SELF_TEST=PASS ready=loopback-authority probe=HTTP_OK cookie=authority-bound fixtures=ready-fragmented,ready-delayed,malformed-url,token-rejected,probe-failed,crash-immediate,crash-delayed,hang seed=2 vectors_executed=0 host={host}"
     );
     Ok(())
 }
