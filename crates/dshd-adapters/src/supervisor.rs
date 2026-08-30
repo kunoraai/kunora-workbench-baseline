@@ -241,15 +241,18 @@ impl Supervisor {
                 attempt.0,
                 self.stop_timeout.as_millis()
             );
+            let deadline = Instant::now() + self.stop_timeout;
             #[cfg(windows)]
             let _ = Command::new("taskkill")
                 .args(["/PID", &pid.to_string(), "/T"])
-                .status();
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn();
             #[cfg(unix)]
             let _ = Command::new("kill")
                 .args(["-TERM", &format!("-{pid}")])
                 .status();
-            let deadline = Instant::now() + self.stop_timeout;
             while Instant::now() < deadline {
                 match child.try_wait() {
                     Ok(Some(_)) => break,
@@ -265,7 +268,10 @@ impl Supervisor {
                 #[cfg(windows)]
                 let _ = Command::new("taskkill")
                     .args(["/PID", &pid.to_string(), "/T", "/F"])
-                    .status();
+                    .stdin(Stdio::null())
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .spawn();
                 #[cfg(unix)]
                 let _ = Command::new("kill")
                     .args(["-KILL", &format!("-{pid}")])
