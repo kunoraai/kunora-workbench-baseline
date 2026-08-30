@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 作者 | 修订内容 | 依据 |
 | --- | --- | --- | --- | --- |
+| v1.1 | 2026-08-30 | Agent（一致性维护） | 修复 5 处本地 Markdown 链接为正确相对路径（冻结语义不变，一致性维护）。 |
 | v1.0 | 2026-08-30 | Remote Agent | 将已冻结的 M2「进程与认证」六要素细化为可由步骤 3 实现 Agent 执行的总体方案；不改变目标、边界、约束、交付物或验收含义。 | `docs/milestones/m2/six-elements.md` v1.0 |
 
 # M2「进程与认证」总体方案
@@ -10,7 +11,7 @@
 
 M2 直接承接已通过人工验收的 M1 工程与验收骨架，把其中明确标记为 `NOT_IMPLEMENTED` 的 config、identity、state、supervisor、harness 及相应验收 driver 首次真实化。M2 的结果不是增加管理面、透明转发或中央客户端，而是在单容器、单 active Harness、单持久卷的边界内，使 dshd 能从持久 desired state 出发，取得本地单写权，初始化身份，启动并认证固定 Harness，形成可撤销的 generation 上下文，并在崩溃、停止、重启、明确隔离输入和容器关闭时可靠收敛。
 
-范围的最高权威是[冻结六要素](docs/milestones/m2/six-elements.md)。架构细化服从[服务设计](docs/dshd-service-design.md) §8、§9、§10 与 §17，节点与容器边界服从[后端节点 HLD](docs/backend-node-hld.md)，行为 oracle 服从[一致性向量](docs/contracts/central-dshd-conformance.md)，控制类型服从[OpenAPI](docs/contracts/central-dshd-openapi.yaml)，真实上游服从[Harness 冻结基线](docs/dsh/harness-version-baseline.md)。若本文与任一冻结输入冲突，以冻结输入为准，本文不得成为第二套契约。
+范围的最高权威是[冻结六要素](six-elements.md)。架构细化服从[服务设计](../../dshd-service-design.md) §8、§9、§10 与 §17，节点与容器边界服从[后端节点 HLD](../../backend-node-hld.md)，行为 oracle 服从[一致性向量](../../contracts/central-dshd-conformance.md)，控制类型服从[OpenAPI](../../contracts/central-dshd-openapi.yaml)，真实上游服从[Harness 冻结基线](../../dsh/harness-version-baseline.md)。若本文与任一冻结输入冲突，以冻结输入为准，本文不得成为第二套契约。
 
 M2 位于 `M0 → M1 → M2 → M3 → {M4,M5,M6} → M7 → M8` 的第二个实现里程碑。它只为 M3 提供稳定的本地进程、认证、状态与证据基础，不预先实现 M3 的管理面 operation/idempotency，不实现 M4/M5 的 HTTP proxy 或 WebSocket 数据通道，也不实现 M6 的 register、heartbeat、lease 客户端。后续阶段只能消费 M2 发布的 typed snapshot、生命周期命令端口和不可变 connection context，不能绕过 state coordinator 直接改状态。
 

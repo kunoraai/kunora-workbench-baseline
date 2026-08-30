@@ -2,6 +2,7 @@
 
 | 版本 | 日期 | 作者 | 修订内容 | 依据 |
 | --- | --- | --- | --- | --- |
+| v1.1 | 2026-08-30 | Agent（一致性维护） | 修复 13 处本地 Markdown 链接为正确相对路径（冻结语义不变，一致性维护）。 |
 | v1.0 | 2026-08-30 | Remote Agent | 将 M2 总体方案拆为依赖明确、可验证、可估算的实现 DAG，并给出交付物、AC/VM 与工程门禁矩阵。 | `docs/milestones/m2/six-elements.md`、`docs/milestones/m2/overall-plan.md` |
 
 # M2「进程与认证」详细计划
@@ -10,7 +11,7 @@
 
 本计划供步骤 3 的远程实现 Agent 在 M1 已验收骨架中执行。目标是完成 D1～D9，使 config/identity、state coordinator、writer guard、supervisor、Harness bootstrap/auth、真实 Harness 接入与 ID/CF/ST 本地 runner driver 形成一条可重复证据链。出口原文保持：**“dshd 能可靠管理并连接真实 Harness；相关 runner 场景可执行”**。
 
-开始 T01 前必须核对[冻结六要素](docs/milestones/m2/six-elements.md)、[总体方案](docs/milestones/m2/overall-plan.md)、[服务设计](docs/dshd-service-design.md)、[节点 HLD](docs/backend-node-hld.md)、[一致性向量](docs/contracts/central-dshd-conformance.md)、[OpenAPI](docs/contracts/central-dshd-openapi.yaml)、[Harness 基线](docs/dsh/harness-version-baseline.md)及 M1 exit evidence。发现摘要或范围不一致即停止，不自行解释为解冻。
+开始 T01 前必须核对[冻结六要素](six-elements.md)、[总体方案](overall-plan.md)、[服务设计](../../dshd-service-design.md)、[节点 HLD](../../backend-node-hld.md)、[一致性向量](../../contracts/central-dshd-conformance.md)、[OpenAPI](../../contracts/central-dshd-openapi.yaml)、[Harness 基线](../../dsh/harness-version-baseline.md)及 M1 exit evidence。发现摘要或范围不一致即停止，不自行解释为解冻。
 
 任务状态采用 `NOT_STARTED|IN_PROGRESS|BLOCKED|DONE`。`DONE` 只表示该任务“完成判据”和列出的验证均有机器结果；代码编译、工具自检或人工审查单独通过不足以替代行为 oracle。人日是单人等效工程量，不是日历承诺；可按 DAG 并行，但依赖边不得绕过。总估算 31.0 人日，处于冻结要求建议的 20～35 人日范围。
 
