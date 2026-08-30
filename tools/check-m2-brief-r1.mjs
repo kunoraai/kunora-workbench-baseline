@@ -12,7 +12,7 @@ function argOf(name) {
   return args[i + 1];
 }
 const baseline = argOf('--baseline');
-const REPORT = 'docs/milestones/m1/briefing/m2-briefing.html';
+const REPORT = 'docs/milestones/m2/briefing/m2-briefing.html';
 const failures = [];
 const ok = (name, cond, detail = '') => { if (!cond) failures.push(detail ? `${name}: ${detail}` : name); };
 function git(...rest) { return execFileSync('git', rest, { encoding: 'utf8' }).trim(); }
