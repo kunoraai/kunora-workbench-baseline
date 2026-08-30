@@ -213,7 +213,10 @@ mod tests {
     }
     #[test]
     fn late_is_dropped() {
-        let s = Snapshot { attempt: Some(AttemptId(2)), ..Snapshot::default() };
+        let s = Snapshot {
+            attempt: Some(AttemptId(2)),
+            ..Snapshot::default()
+        };
         assert!(
             reduce(
                 s,
@@ -230,7 +233,10 @@ mod tests {
     }
     #[test]
     fn shutdown_wins() {
-        let s = Snapshot { attempt: Some(AttemptId(1)), ..Snapshot::default() };
+        let s = Snapshot {
+            attempt: Some(AttemptId(1)),
+            ..Snapshot::default()
+        };
         let s = reduce(s, Event::Shutdown).snapshot;
         assert!(
             reduce(
