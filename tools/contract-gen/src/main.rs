@@ -178,15 +178,13 @@ fn render_named(name: &str, schema: &Value) -> Result<String, String> {
             if let Some(r) = map(part).and_then(|x| get(x, "$ref")).and_then(ref_name) {
                 n += 1;
                 fields.push_str(&format!("    #[serde(flatten)]\n    pub base_{n}: {r},\n"));
-            } else if let Some(pm) = map(part) {
-                if get(pm, "properties").is_some() {
-                    let helper = format!("{name}Part{}", n + 1);
-                    render_object(&helper, pm, &mut defs)?;
-                    n += 1;
-                    fields.push_str(&format!(
-                        "    #[serde(flatten)]\n    pub part_{n}: {helper},\n"
-                    ));
-                }
+            } else if let Some(pm) = map(part).filter(|pm| get(pm, "properties").is_some()) {
+                let helper = format!("{name}Part{}", n + 1);
+                render_object(&helper, pm, &mut defs)?;
+                n += 1;
+                fields.push_str(&format!(
+                    "    #[serde(flatten)]\n    pub part_{n}: {helper},\n"
+                ));
             }
         }
         if n == 0 {

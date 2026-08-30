@@ -28,7 +28,7 @@
 
 ## 3. 验收通过的效力
 
-按七步协议，M1 步骤 7（人工验收）已满足，M1 正式关闭；下一里程碑 M2「进程与认证」（[路线图 §17.2](../dshd-service-design.md)）获准启动。M2 六要素冻结文档见 `docs/milestones/m2/six-elements.md`。
+按七步协议，M1 步骤 7（人工验收）已满足，M1 正式关闭；下一里程碑 M2「进程与认证」（[路线图 §17.2](../../dshd-service-design.md)）获准启动。M2 六要素冻结文档见 `docs/milestones/m2/six-elements.md`。
 
 ## 4. 遗留事项追踪
 
