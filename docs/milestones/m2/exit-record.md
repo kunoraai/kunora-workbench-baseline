@@ -4,14 +4,14 @@
 
 | 门禁 | 状态 | 证据 |
 | --- | --- | --- |
-| AC-01 | PENDING | 最终七模式尚待本记录提交后运行 |
+| AC-01 | PASS | 七模式同一 HEAD 均为 `RESULT=PASS`；Clippy `-D warnings` 通过 |
 | AC-02 | PASS | `reports/t04-writer-guard.md` |
 | AC-03 | BLOCKED | 真实启动/auth/probe PASS；真实 crash→N+1 transcript 缺失 |
 | AC-04 | PASS | reducer、desired durable tests |
 | AC-05 | PASS | exact authority、redaction 与真实 exchange/probe |
 | AC-06 | PASS | config/identity fail-closed tests |
 | AC-07 | PASS | `reports/t15-runner.md`，66 声明保持 |
-| VM-01 | PENDING | 最终七模式 |
+| VM-01 | PASS | structural/check/clippy/test/drift/selftests/evidence 全绿 |
 | VM-02 | PASS | 双 OS 进程 oracle |
 | VM-03 | BLOCKED | 同 AC-03 |
 | VM-04 | PASS | runner 三种动态报告与 manifest 负测 |
