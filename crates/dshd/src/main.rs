@@ -1,9 +1,20 @@
-use dshd_adapters::files::{DesiredStore, IdentityStore, WriterGuard, generated_uuid_v4};
+use dshd_adapters::{
+    coordinator::Coordinator,
+    files::{DesiredStore, IdentityStore, WriterGuard, generated_uuid_v4},
+    supervisor::{BackoffPolicy, Supervisor, harness_spec},
+};
 use dshd_core::{
     config::ValidatedConfig,
     identity::{IdentityDecision, decide},
+    state::{Event, Snapshot},
 };
-use std::{path::PathBuf, process::ExitCode, thread, time::Duration};
+use std::{
+    io::{self, BufRead},
+    path::PathBuf,
+    process::ExitCode,
+    thread,
+    time::{Duration, Instant},
+};
 
 fn value(args: &[String], name: &str) -> Option<String> {
     args.iter()
@@ -50,10 +61,103 @@ fn run() -> Result<(), String> {
         desired,
         std::process::id()
     );
-    if let Some(ms) = value(&args, "--hold-ms") {
-        thread::sleep(Duration::from_millis(
-            ms.parse().map_err(|_| "INVALID_HOLD")?,
-        ));
+    let Some(program) = value(&args, "--harness-program") else {
+        if let Some(ms) = value(&args, "--hold-ms") {
+            thread::sleep(Duration::from_millis(
+                ms.parse().map_err(|_| "INVALID_HOLD")?,
+            ));
+        }
+        return Ok(());
+    };
+    let cwd = PathBuf::from(value(&args, "--harness-cwd").ok_or("CONFIG_MISSING harness-cwd")?);
+    let entries = [
+        "--harness-entry",
+        "--harness-entry-arg",
+        "--harness-entry-arg2",
+    ]
+    .into_iter()
+    .filter_map(|name| value(&args, name).map(PathBuf::from))
+    .collect();
+    let mut spec = harness_spec(PathBuf::from(program), entries, cwd);
+    for (name, value) in std::env::vars() {
+        let upper = name.to_ascii_uppercase();
+        if !["KEY", "SECRET", "TOKEN", "PASSWORD"]
+            .iter()
+            .any(|sensitive| upper.contains(sensitive))
+        {
+            spec.env.push((name, value));
+        }
+    }
+    let supervisor = Supervisor::new(
+        spec,
+        BackoffPolicy {
+            initial: Duration::from_secs(1),
+            maximum: Duration::from_secs(30),
+        },
+    );
+    let executor = supervisor.clone();
+    let coordinator = Coordinator::start(
+        Snapshot {
+            desired,
+            ..Snapshot::default()
+        },
+        move |effect, feedback| executor.execute(effect, feedback),
+    );
+    if desired == dshd_core::state::DesiredState::Running {
+        coordinator
+            .send(Event::Reconcile)
+            .map_err(|_| "COORDINATOR_CLOSED")?;
+    }
+    let command_tx = coordinator.sender();
+    thread::spawn(move || {
+        for line in io::stdin().lock().lines().map_while(Result::ok) {
+            match line.trim() {
+                "shutdown" => {
+                    let _ = command_tx.send(Event::Shutdown);
+                    break;
+                }
+                "fence" => {
+                    let _ = command_tx.send(Event::Fence);
+                }
+                _ => {}
+            }
+        }
+    });
+    let deadline = value(&args, "--hold-ms")
+        .map(|ms| {
+            ms.parse::<u64>()
+                .map(|ms| Instant::now() + Duration::from_millis(ms))
+        })
+        .transpose()
+        .map_err(|_| "INVALID_HOLD")?;
+    let mut sequence = u64::MAX;
+    loop {
+        let snapshot = coordinator.snapshot();
+        if snapshot.sequence != sequence {
+            sequence = snapshot.sequence;
+            let authority = snapshot
+                .context
+                .as_ref()
+                .map(|c| c.authority.as_str())
+                .unwrap_or("none");
+            println!(
+                "{{\"component\":\"dshd\",\"snapshot\":{},\"observed\":\"{:?}\",\"attempt\":{},\"generation\":{},\"authority\":\"{}\"}}",
+                snapshot.sequence,
+                snapshot.observed,
+                snapshot.attempt.map_or(0, |a| a.0),
+                snapshot.generation.0,
+                authority
+            );
+        }
+        if snapshot.shutdown && snapshot.observed == dshd_core::state::ObservedState::Stopped {
+            break;
+        }
+        if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+            coordinator
+                .send(Event::Shutdown)
+                .map_err(|_| "COORDINATOR_CLOSED")?;
+        }
+        thread::sleep(Duration::from_millis(20));
     }
     Ok(())
 }

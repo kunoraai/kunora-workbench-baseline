@@ -11,7 +11,7 @@ pub struct Coordinator {
 impl Coordinator {
     pub fn start(
         initial: Snapshot,
-        execute: impl Fn(Effect) -> Option<Event> + Send + 'static,
+        execute: impl Fn(Effect, SyncSender<Event>) + Send + 'static,
     ) -> Self {
         let (tx, rx) = mpsc::sync_channel(64);
         let snapshot = Arc::new(RwLock::new(initial));
@@ -23,9 +23,7 @@ impl Coordinator {
                 let reduction = reduce(before, event);
                 *shared.write().expect("snapshot poisoned") = reduction.snapshot;
                 for effect in reduction.effects {
-                    if let Some(done) = execute(effect) {
-                        let _ = feedback.send(done);
-                    }
+                    execute(effect, feedback.clone());
                 }
             }
         });
@@ -36,5 +34,8 @@ impl Coordinator {
     }
     pub fn snapshot(&self) -> Snapshot {
         self.snapshot.read().expect("snapshot poisoned").clone()
+    }
+    pub fn sender(&self) -> SyncSender<Event> {
+        self.tx.clone()
     }
 }
