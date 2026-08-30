@@ -101,6 +101,12 @@ pub fn reduce(mut s: Snapshot, e: Event) -> Reduction {
     s.sequence += 1;
     match e {
         Event::Shutdown => {
+            if s.shutdown {
+                return Reduction {
+                    snapshot: s,
+                    effects,
+                };
+            }
             s.shutdown = true;
             s.context = None;
             if s.registration != RegistrationState::Fenced {
@@ -201,6 +207,15 @@ pub fn reduce(mut s: Snapshot, e: Event) -> Reduction {
             s.observed = ObservedState::Unhealthy;
             effects.extend([Effect::DropContext, Effect::ScheduleBackoff(a)])
         }
+        Event::ChildExited(a) if current(&s, a) => {
+            s.context = None;
+            s.attempt = None;
+            s.observed = if s.registration == RegistrationState::Fenced {
+                ObservedState::Fenced
+            } else {
+                ObservedState::Stopped
+            };
+        }
         Event::BackoffElapsed(a)
             if current(&s, a)
                 && s.desired == DesiredState::Running
@@ -281,6 +296,51 @@ mod tests {
             .context
             .is_none()
         );
+    }
+    #[test]
+    fn child_gone_before_stop_event_converges_to_stopped() {
+        let running = Snapshot {
+            attempt: Some(AttemptId(1)),
+            observed: ObservedState::Ready,
+            ..Snapshot::default()
+        };
+        let child_gone = reduce(running, Event::ChildExited(AttemptId(1))).snapshot;
+        assert_eq!(child_gone.observed, ObservedState::Unhealthy);
+        let stopping = reduce(child_gone, Event::Shutdown);
+        assert_eq!(stopping.snapshot.observed, ObservedState::Stopping);
+        assert_eq!(
+            stopping.effects,
+            vec![Effect::DropContext, Effect::Stop(AttemptId(1))]
+        );
+        let stopped = reduce(stopping.snapshot, Event::Stopped(AttemptId(1))).snapshot;
+        assert_eq!(stopped.observed, ObservedState::Stopped);
+        assert!(stopped.attempt.is_none());
+    }
+    #[test]
+    fn stop_event_before_child_gone_converges_to_stopped() {
+        let running = Snapshot {
+            attempt: Some(AttemptId(1)),
+            observed: ObservedState::Ready,
+            ..Snapshot::default()
+        };
+        let stopping = reduce(running, Event::Shutdown).snapshot;
+        assert_eq!(stopping.observed, ObservedState::Stopping);
+        let stopped = reduce(stopping, Event::ChildExited(AttemptId(1))).snapshot;
+        assert_eq!(stopped.observed, ObservedState::Stopped);
+        assert!(stopped.attempt.is_none());
+    }
+    #[test]
+    fn duplicate_shutdown_does_not_repeat_stop_effect() {
+        let running = Snapshot {
+            attempt: Some(AttemptId(1)),
+            observed: ObservedState::Ready,
+            ..Snapshot::default()
+        };
+        let first = reduce(running, Event::Shutdown);
+        assert_eq!(first.effects.len(), 2);
+        let duplicate = reduce(first.snapshot, Event::Shutdown);
+        assert!(duplicate.effects.is_empty());
+        assert_eq!(duplicate.snapshot.observed, ObservedState::Stopping);
     }
     #[test]
     fn local_consequence_priority_is_fence_then_shutdown_then_stop() {

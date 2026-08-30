@@ -7,7 +7,7 @@ edition.workspace = true
 dshd-core = { path = "../dshd-core" }
 dshd-contract = { path = "../dshd-contract" }
 dshd-adapters = { path = "../dshd-adapters" }
+ctrlc = { version = "3.4.7", features = ["termination"] }
 
 [lints]
 workspace = true
-

@@ -109,6 +109,11 @@ fn run() -> Result<(), String> {
             .map_err(|_| "COORDINATOR_CLOSED")?;
     }
     let command_tx = coordinator.sender();
+    let signal_tx = command_tx.clone();
+    ctrlc::set_handler(move || {
+        let _ = signal_tx.send(Event::Shutdown);
+    })
+    .map_err(|error| format!("SIGNAL_HANDLER {error}"))?;
     thread::spawn(move || {
         for line in io::stdin().lock().lines().map_while(Result::ok) {
             match line.trim() {
@@ -123,7 +128,7 @@ fn run() -> Result<(), String> {
             }
         }
     });
-    let deadline = value(&args, "--hold-ms")
+    let mut deadline = value(&args, "--hold-ms")
         .map(|ms| {
             ms.parse::<u64>()
                 .map(|ms| Instant::now() + Duration::from_millis(ms))
@@ -156,6 +161,7 @@ fn run() -> Result<(), String> {
             coordinator
                 .send(Event::Shutdown)
                 .map_err(|_| "COORDINATOR_CLOSED")?;
+            deadline = None;
         }
         thread::sleep(Duration::from_millis(20));
     }
