@@ -1,28 +1,30 @@
+use atomicwrites::{AllowOverwrite, AtomicFile, DisallowOverwrite, OverwriteBehavior};
 use dshd_core::{identity::NodeIdentity, state::DesiredState};
+use fs4::fs_std::FileExt;
 use std::{
     fs::{self, File, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
 };
-fn atomic(path: &Path, data: &[u8]) -> io::Result<()> {
+fn atomic_with(path: &Path, data: &[u8], overwrite: OverwriteBehavior) -> io::Result<()> {
     let parent = path
         .parent()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing parent"))?;
     fs::create_dir_all(parent)?;
-    let temp = parent.join(format!(".dshd-{}.tmp", std::process::id()));
-    let mut f = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&temp)?;
-    f.write_all(data)?;
-    f.sync_all()?;
-    drop(f);
-    if path.exists() {
-        fs::remove_file(path)?
-    }
-    fs::rename(&temp, path)?;
+    AtomicFile::new(path, overwrite)
+        .write(|file| {
+            file.write_all(data)?;
+            file.sync_all()
+        })
+        .map_err(|error| match error {
+            atomicwrites::Error::Internal(error) | atomicwrites::Error::User(error) => error,
+        })?;
     sync_parent(parent)
+}
+
+fn atomic(path: &Path, data: &[u8]) -> io::Result<()> {
+    atomic_with(path, data, AllowOverwrite)
 }
 
 #[cfg(unix)]
@@ -74,13 +76,14 @@ impl IdentityStore {
                 "identity exists",
             ));
         }
-        atomic(
+        atomic_with(
             &self.path,
             format!(
                 "{{\"schema_version\":1,\"node_id\":\"{}\",\"storage_id\":\"{}\"}}\n",
                 i.node_id, i.storage_id
             )
             .as_bytes(),
+            DisallowOverwrite,
         )
     }
 }
@@ -118,32 +121,34 @@ impl DesiredStore {
 }
 #[derive(Debug)]
 pub struct WriterGuard {
-    path: PathBuf,
     _file: File,
 }
 impl WriterGuard {
     pub fn acquire(root: &Path) -> io::Result<Self> {
+        fn guard_error(error: io::Error) -> io::Error {
+            if error.kind() == io::ErrorKind::WouldBlock
+                || matches!(error.raw_os_error(), Some(32 | 33))
+            {
+                io::Error::new(io::ErrorKind::WouldBlock, "WRITER_GUARD_HELD")
+            } else {
+                error
+            }
+        }
         fs::create_dir_all(root)?;
         let path = root.join("writer.lock");
         let mut file = OpenOptions::new()
+            .read(true)
             .write(true)
-            .create_new(true)
+            .create(true)
+            .truncate(false)
             .open(&path)
-            .map_err(|e| {
-                if e.kind() == io::ErrorKind::AlreadyExists {
-                    io::Error::new(io::ErrorKind::WouldBlock, "WRITER_GUARD_HELD")
-                } else {
-                    e
-                }
-            })?;
-        writeln!(file, "pid={}", std::process::id())?;
-        file.sync_all()?;
-        Ok(Self { path, _file: file })
-    }
-}
-impl Drop for WriterGuard {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.path);
+            .map_err(guard_error)?;
+        // fs4 maps this owner-bound lock to LockFileEx on Windows and flock on Unix.
+        file.try_lock_exclusive().map_err(guard_error)?;
+        file.set_len(0).map_err(guard_error)?;
+        writeln!(file, "pid={}", std::process::id()).map_err(guard_error)?;
+        file.sync_all().map_err(guard_error)?;
+        Ok(Self { _file: file })
     }
 }
 pub fn generated_uuid_v4() -> String {
@@ -194,12 +199,28 @@ mod tests {
     fn guard_is_exclusive() {
         let r = root("guard");
         let g = WriterGuard::acquire(&r).unwrap();
-        assert_eq!(
-            WriterGuard::acquire(&r).unwrap_err().kind(),
-            io::ErrorKind::WouldBlock
-        );
+        assert!(WriterGuard::acquire(&r).is_err());
         drop(g);
         assert!(WriterGuard::acquire(&r).is_ok());
+        fs::remove_dir_all(r).unwrap()
+    }
+    #[test]
+    fn stale_lock_file_does_not_block_a_successor() {
+        let r = root("stale-guard");
+        fs::create_dir_all(&r).unwrap();
+        fs::write(r.join("writer.lock"), b"pid=gone\n").unwrap();
+        assert!(WriterGuard::acquire(&r).is_ok());
+        fs::remove_dir_all(r).unwrap()
+    }
+    #[test]
+    fn replacement_is_always_a_complete_old_or_new_value() {
+        let r = root("atomic-replace");
+        let s = DesiredStore::new(&r);
+        s.persist(DesiredState::Running).unwrap();
+        for expected in [DesiredState::Stopped, DesiredState::Running] {
+            s.persist(expected).unwrap();
+            assert_eq!(s.load_or_create().unwrap(), expected);
+        }
         fs::remove_dir_all(r).unwrap()
     }
     #[test]

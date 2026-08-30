@@ -1,7 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
+import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { delimiter, join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
 const dshRoot = join(root, 'dsh')
@@ -12,9 +13,43 @@ const runRoot = await mkdtemp(join(tmpdir(), 'dshd-m2-product-'))
 const startedAt = Date.now()
 const elapsed = () => `${String(Date.now() - startedAt).padStart(5, '0')}ms`
 
+function checked(program, args, cwd, label, env = process.env) {
+  const result = spawnSync(program, args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' })
+  if (result.status !== 0) {
+    const detail = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.trim().slice(-4000)
+    throw new Error(`PRECONDITION_FAILED ${label} exit=${String(result.status)} ${detail}`)
+  }
+}
+
+async function ensureBuiltProducts() {
+  const toolBin = join(runRoot, 'corepack-bin')
+  await mkdir(toolBin, { recursive: true })
+  checked('corepack', ['enable', '--install-directory', toolBin], root, 'project-local pnpm shim')
+  const buildEnv = { ...process.env, PATH: `${toolBin}${delimiter}${process.env.PATH ?? ''}` }
+  console.log(`${elapsed()} PREPARE frozen_install=corepack-pnpm frozen_lock=true`)
+  checked('corepack', ['pnpm', 'install', '--frozen-lockfile'], dshRoot, 'frozen dependency install', buildEnv)
+  console.log(`${elapsed()} PREPARE cli_build=pnpm-build`)
+  checked('corepack', ['pnpm', 'build'], dshRoot, 'frozen CLI build', buildEnv)
+  try {
+    await access(cli)
+  } catch (error) {
+    throw new Error(`PRECONDITION_FAILED CLI artifact missing after build: ${cli}`, { cause: error })
+  }
+  const cliDigest = createHash('sha256').update(await readFile(cli)).digest('hex')
+  console.log(`${elapsed()} PREPARE cli_artifact=${cli} sha256=${cliDigest}`)
+  checked('cargo', ['build', '--locked', '-p', 'dshd'], root, 'dshd build')
+  try {
+    await access(dshd)
+  } catch (error) {
+    throw new Error(`PRECONDITION_FAILED dshd artifact missing after build: ${dshd}`, { cause: error })
+  }
+  return cliDigest
+}
+
 function cleanEnvironment() {
   const inherited = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/(?:KEY|SECRET|TOKEN|PASSWORD)/iu.test(name)))
-  return { ...inherited, DSH_AGENTS_HOME: join(runRoot, '.agents'), DSH_HOME: join(runRoot, '.dsh'), DSH_TELEMETRY_DISABLED: '1', NODE_NO_WARNINGS: '1', SSH_CONNECTION: '', SSH_TTY: '' }
+  const isolatedHome = join(runRoot, 'home')
+  return { ...inherited, HOME: isolatedHome, USERPROFILE: isolatedHome, XDG_CONFIG_HOME: join(isolatedHome, '.config'), XDG_STATE_HOME: join(isolatedHome, '.local', 'state'), DSH_AGENTS_HOME: join(runRoot, '.agents'), DSH_HOME: join(runRoot, '.dsh'), DSH_TELEMETRY_DISABLED: '1', NODE_NO_WARNINGS: '1', SSH_CONNECTION: '', SSH_TTY: '' }
 }
 function waitFor(test, timeoutMs, label) {
   return new Promise((resolveWait, reject) => {
@@ -34,6 +69,7 @@ function pidExists(pid) {
 
 let daemon
 try {
+  const cliDigest = await ensureBuiltProducts()
   const args = [
     '--state-dir', join(runRoot, 'state'), '--node-id', '123e4567-e89b-42d3-a456-426614174000',
     '--node-token', 'in-memory-only', '--listen-port', '8080', '--advertise-url', 'http://127.0.0.1:8080',
@@ -41,7 +77,7 @@ try {
     '--harness-entry', cli,
     '--harness-cwd', dshRoot,
   ]
-  console.log(`${elapsed()} PRODUCT_START driver=dshd-assembled profile="dsh web --no-open --port 0"`)
+  console.log(`${elapsed()} PRODUCT_START driver=dshd-assembled profile="dsh web --no-open --port 0" cli_sha256=${cliDigest}`)
   daemon = spawn(dshd, args, { env: cleanEnvironment(), stdio: ['pipe', 'pipe', 'pipe'] })
   let buffered = ''
   const records = []
