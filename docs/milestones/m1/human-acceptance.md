@@ -32,8 +32,8 @@
 
 ## 4. 遗留事项追踪
 
-1. **CI 证据补齐**：用户已增加 GitHub Actions 预算（2026-08-30 指令“已经增加了预算”）；将触发新 CI run 并固化 8 job 全绿证据，据此更新 AC-01/VM-01 与 AC-04/VM-04 状态（预案：`ci-evidence-collection-plan.md`，存于调用方任务档案）。
-2. 上述证据为 M1 出口的补强项，不改变 M1 已通过的验收结论。
+1. **CI 证据补齐（状态更新）**：2026-08-30 依用户决定将仓库转为 public（`gh repo edit --visibility public`），Actions 已能创建 run 并真实调度，但全部 job 在 runner 预置阶段被拒（conclusion=failure、零 step、日志为空）——已确认为组织账户付款方式失效/限额类阻断（同 [GitHub 社区 164954/187302 症状]，与代码无关）。期间调用方本地复现并修复两个真实问题：① `human-acceptance.md` 断链（`../`→`../../`，致 contracts-source 验证失败）；② `contract-gen` collapsible_if clippy 缺陷（迭代 3 遗留，五模式验收未含 clippy 门禁）。修复提交 `5f82f06c` 本地全绿（fmt/clippy/check/test/drift-real/selftests-real/validate_contracts）。待账户侧修复付款方式后，CI 8 job 全绿即固化 AC-01/VM-01（BLOCKED-EXTERNAL→PASS）与 AC-04/VM-04/D5（PENDING→PASS）证据。
+2. 上述证据为 M1 出口的补强项，不改变 M1 已通过的验收结论。用户已决定暂搁置 CI 补齐、先行推进 M2（2026-08-30）。
 
 ## 5. 诚实声明
 
