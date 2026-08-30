@@ -4,6 +4,9 @@ use std::{
     process::{Child, Command, Stdio},
     time::Duration,
 };
+
+/// Frozen real-Harness launch profile (T14): `dsh web --no-open --port 0`.
+pub const FROZEN_HARNESS_PROFILE: &str = "dsh web --no-open --port 0";
 #[derive(Clone, Debug)]
 pub struct ProcessSpec {
     pub program: PathBuf,
