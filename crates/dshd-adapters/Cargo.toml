@@ -6,7 +6,8 @@ edition.workspace = true
 [dependencies]
 dshd-core = { path = "../dshd-core" }
 dshd-contract = { path = "../dshd-contract" }
+atomicwrites = "0.4.4"
+fs4 = "0.13.1"
 
 [lints]
 workspace = true
-

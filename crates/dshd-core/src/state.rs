@@ -35,6 +35,7 @@ pub struct ConnectionContext {
 }
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Snapshot {
+    // Immutable value published by Coordinator::subscribe after each reduction.
     pub sequence: u64,
     pub desired: DesiredState,
     pub observed: ObservedState,
@@ -102,10 +103,12 @@ pub fn reduce(mut s: Snapshot, e: Event) -> Reduction {
         Event::Shutdown => {
             s.shutdown = true;
             s.context = None;
-            s.observed = ObservedState::Stopping;
+            if s.registration != RegistrationState::Fenced {
+                s.observed = ObservedState::Stopping;
+            }
             if let Some(a) = s.attempt {
                 effects.extend([Effect::DropContext, Effect::Stop(a)])
-            } else {
+            } else if s.registration != RegistrationState::Fenced {
                 s.observed = ObservedState::Stopped
             }
         }
@@ -120,14 +123,18 @@ pub fn reduce(mut s: Snapshot, e: Event) -> Reduction {
         Event::DesiredPersisted(DesiredState::Stopped) => {
             s.desired = DesiredState::Stopped;
             s.context = None;
-            s.observed = ObservedState::Stopping;
+            if s.registration != RegistrationState::Fenced {
+                s.observed = ObservedState::Stopping;
+            }
             if let Some(a) = s.attempt {
                 effects.extend([Effect::DropContext, Effect::Stop(a)])
-            } else {
+            } else if s.registration != RegistrationState::Fenced {
                 s.observed = ObservedState::Stopped
             }
         }
-        Event::DesiredPersisted(DesiredState::Running) => {
+        Event::DesiredPersisted(DesiredState::Running)
+            if !s.shutdown && s.registration != RegistrationState::Fenced =>
+        {
             s.desired = DesiredState::Running;
             effects.push(Effect::Spawn(next(&s)))
         }
@@ -138,11 +145,20 @@ pub fn reduce(mut s: Snapshot, e: Event) -> Reduction {
         {
             effects.push(Effect::Spawn(next(&s)))
         }
-        Event::Spawned(a) => {
+        Event::Spawned(a)
+            if s.desired == DesiredState::Running
+                && !s.shutdown
+                && s.registration != RegistrationState::Fenced =>
+        {
             s.attempt = Some(a);
             s.observed = ObservedState::Starting
         }
-        Event::ReadyUrl(a) if current(&s, a) => {
+        Event::ReadyUrl(a)
+            if current(&s, a)
+                && s.desired == DesiredState::Running
+                && !s.shutdown
+                && s.registration != RegistrationState::Fenced =>
+        {
             s.observed = ObservedState::Authenticating;
             effects.push(Effect::Bootstrap(a))
         }
@@ -163,13 +179,23 @@ pub fn reduce(mut s: Snapshot, e: Event) -> Reduction {
             });
             effects.push(Effect::PublishContext(g))
         }
-        Event::Failed(a, error) if current(&s, a) => {
+        Event::Failed(a, error)
+            if current(&s, a)
+                && s.desired == DesiredState::Running
+                && !s.shutdown
+                && s.registration != RegistrationState::Fenced =>
+        {
             s.context = None;
             s.last_error = Some(error);
             s.observed = ObservedState::Unhealthy;
             effects.extend([Effect::DropContext, Effect::ScheduleBackoff(a)])
         }
-        Event::ChildExited(a) if current(&s, a) => {
+        Event::ChildExited(a)
+            if current(&s, a)
+                && s.desired == DesiredState::Running
+                && !s.shutdown
+                && s.registration != RegistrationState::Fenced =>
+        {
             s.context = None;
             s.last_error = Some("child exited".into());
             s.observed = ObservedState::Unhealthy;
@@ -186,7 +212,11 @@ pub fn reduce(mut s: Snapshot, e: Event) -> Reduction {
         Event::Stopped(a) if current(&s, a) => {
             s.context = None;
             s.attempt = None;
-            s.observed = ObservedState::Stopped
+            s.observed = if s.registration == RegistrationState::Fenced {
+                ObservedState::Fenced
+            } else {
+                ObservedState::Stopped
+            }
         }
         _ => {}
     }
@@ -251,5 +281,53 @@ mod tests {
             .context
             .is_none()
         );
+    }
+    #[test]
+    fn local_consequence_priority_is_fence_then_shutdown_then_stop() {
+        for observed in [
+            ObservedState::Starting,
+            ObservedState::Authenticating,
+            ObservedState::Ready,
+            ObservedState::Unhealthy,
+            ObservedState::Stopping,
+            ObservedState::Stopped,
+            ObservedState::Fenced,
+        ] {
+            let base = Snapshot {
+                observed,
+                attempt: Some(AttemptId(7)),
+                ..Snapshot::default()
+            };
+            let stopped = reduce(base.clone(), Event::DesiredPersisted(DesiredState::Stopped));
+            assert_eq!(stopped.snapshot.observed, ObservedState::Stopping);
+            let shutdown = reduce(base.clone(), Event::Shutdown);
+            assert!(shutdown.snapshot.shutdown);
+            assert_eq!(shutdown.snapshot.observed, ObservedState::Stopping);
+            let fenced = reduce(base, Event::Fence);
+            assert_eq!(fenced.snapshot.registration, RegistrationState::Fenced);
+            assert_eq!(fenced.snapshot.observed, ObservedState::Fenced);
+        }
+    }
+    #[test]
+    fn late_duplicate_and_out_of_order_events_cannot_revive_terminal_state() {
+        let terminal = reduce(
+            Snapshot {
+                attempt: Some(AttemptId(2)),
+                ..Snapshot::default()
+            },
+            Event::Fence,
+        )
+        .snapshot;
+        for event in [
+            Event::Spawned(AttemptId(3)),
+            Event::ReadyUrl(AttemptId(2)),
+            Event::BackoffElapsed(AttemptId(2)),
+            Event::ChildExited(AttemptId(2)),
+            Event::Stopped(AttemptId(1)),
+        ] {
+            let result = reduce(terminal.clone(), event).snapshot;
+            assert_eq!(result.registration, RegistrationState::Fenced);
+            assert!(result.context.is_none());
+        }
     }
 }

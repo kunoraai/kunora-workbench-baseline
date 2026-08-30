@@ -9,8 +9,13 @@ use std::{
     process::{Child, Command, Stdio},
     sync::{Arc, Mutex, mpsc::SyncSender},
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 
 use crate::harness::exchange_and_probe;
 
@@ -52,6 +57,7 @@ pub struct Supervisor {
     backoff: BackoffPolicy,
     children: Arc<Mutex<BTreeMap<AttemptId, ManagedChild>>>,
     ready: Arc<Mutex<BTreeMap<AttemptId, ReadyUrl>>>,
+    stop_timeout: Duration,
 }
 
 impl Supervisor {
@@ -61,7 +67,13 @@ impl Supervisor {
             backoff,
             children: Arc::new(Mutex::new(BTreeMap::new())),
             ready: Arc::new(Mutex::new(BTreeMap::new())),
+            stop_timeout: Duration::from_secs(8),
         }
+    }
+
+    pub fn with_stop_timeout(mut self, stop_timeout: Duration) -> Self {
+        self.stop_timeout = stop_timeout;
+        self
     }
 
     pub fn execute(&self, effect: Effect, feedback: SyncSender<Event>) {
@@ -223,11 +235,43 @@ impl Supervisor {
             .remove(&attempt)
         {
             let mut child = managed.child.lock().expect("child poisoned");
+            let pid = child.id();
+            println!(
+                "{{\"component\":\"dshd\",\"effect\":\"Stop\",\"attempt\":{},\"phase\":\"graceful-terminate\",\"stop_timeout_ms\":{}}}",
+                attempt.0,
+                self.stop_timeout.as_millis()
+            );
             #[cfg(windows)]
             let _ = Command::new("taskkill")
-                .args(["/PID", &child.id().to_string(), "/T", "/F"])
+                .args(["/PID", &pid.to_string(), "/T"])
                 .status();
-            let _ = child.kill();
+            #[cfg(unix)]
+            let _ = Command::new("kill")
+                .args(["-TERM", &format!("-{pid}")])
+                .status();
+            let deadline = Instant::now() + self.stop_timeout;
+            while Instant::now() < deadline {
+                match child.try_wait() {
+                    Ok(Some(_)) => break,
+                    Ok(None) => thread::sleep(Duration::from_millis(20)),
+                    Err(_) => break,
+                }
+            }
+            if child.try_wait().ok().flatten().is_none() {
+                println!(
+                    "{{\"component\":\"dshd\",\"effect\":\"Stop\",\"attempt\":{},\"phase\":\"timeout-force-kill\"}}",
+                    attempt.0
+                );
+                #[cfg(windows)]
+                let _ = Command::new("taskkill")
+                    .args(["/PID", &pid.to_string(), "/T", "/F"])
+                    .status();
+                #[cfg(unix)]
+                let _ = Command::new("kill")
+                    .args(["-KILL", &format!("-{pid}")])
+                    .status();
+                let _ = child.kill();
+            }
             let _ = child.wait();
         }
         let _ = feedback.send(Event::Stopped(attempt));
@@ -236,6 +280,10 @@ impl Supervisor {
 pub fn spawn(spec: &ProcessSpec) -> io::Result<Child> {
     let mut command = Command::new(&spec.program);
     command.args(&spec.args).current_dir(&spec.cwd);
+    #[cfg(unix)]
+    command.process_group(0);
+    #[cfg(windows)]
+    command.creation_flags(0x0000_0200); // CREATE_NEW_PROCESS_GROUP
     for (name, _) in std::env::vars() {
         let upper = name.to_ascii_uppercase();
         if ["KEY", "SECRET", "TOKEN", "PASSWORD"]
@@ -284,5 +332,17 @@ mod tests {
                 .join(" "),
             "web --no-open --port 0"
         );
+    }
+    #[test]
+    fn stop_timeout_is_injectable() {
+        let supervisor = Supervisor::new(
+            harness_spec("dsh".into(), Vec::new(), ".".into()),
+            BackoffPolicy {
+                initial: Duration::from_secs(1),
+                maximum: Duration::from_secs(30),
+            },
+        )
+        .with_stop_timeout(Duration::from_millis(25));
+        assert_eq!(supervisor.stop_timeout, Duration::from_millis(25));
     }
 }
