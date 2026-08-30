@@ -1,7 +1,11 @@
-# T04 Writer guard 机器证据（R4）
+# T04 Writer guard 机器证据（迭代 4）
 
-Writer guard 已从 `create_new` 哨兵改为 `fs4::FileExt::try_lock_exclusive`，在 Windows 使用 `LockFileEx`、Unix 使用 `flock`，所有权绑定 RAII 文件 handle。锁文件可以保留诊断 PID，但它的存在不表示锁被占用；进程崩溃关闭 handle 后，successor 可立即取得内核锁。
+Writer guard 已由 `create_new` 哨兵文件改为 `fs4` 封装的 OS 内核排他锁（Windows `LockFileEx`，Unix `flock`），锁的所有权与 RAII `File` handle 绑定。`writer.lock` 只是稳定锁定 inode/path，其存在不代表锁被占用；owner 正常退出、panic 或异常进程终止后，内核释放 handle 所持锁，successor 可重新取得。
 
-覆盖项：同一 state-dir 的 owner/competitor 排他（竞争者为 `WRITER_GUARD_HELD`）、RAII 释放后 successor 取得、预存 stale `writer.lock` 不阻塞 successor。guard 在 coordinator/supervisor 之前取得，因此 competitor 失败路径不会 spawn child，也不会发布 local/ready。
+本地 oracle 覆盖：
 
-CF-01 本地双进程 oracle：PASS。Windows 与 Unix 共用相同公开 adapter 行为，底层由 fs4 分别映射到对应 OS 内核锁。
+- owner 持锁期间 competitor 取得失败，并映射为 `WRITER_GUARD_HELD`；competitor 在 guard 前置门失败，不进入 coordinator/supervisor，因而无 child/local-ready 副作用。
+- owner handle 释放后 successor 取得成功。
+- 预先存在的 stale `writer.lock` 不阻塞 successor，证明判据来自内核锁所有权而非哨兵文件存在性。
+
+CF-01 的 Windows/Unix 实现共用同一 RAII 语义；当前 Windows VPS 复跑由 cargo test 与产品路径 guard 门验证。

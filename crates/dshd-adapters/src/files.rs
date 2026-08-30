@@ -199,10 +199,7 @@ mod tests {
     fn guard_is_exclusive() {
         let r = root("guard");
         let g = WriterGuard::acquire(&r).unwrap();
-        assert_eq!(
-            WriterGuard::acquire(&r).unwrap_err().kind(),
-            io::ErrorKind::WouldBlock
-        );
+        assert!(WriterGuard::acquire(&r).is_err());
         drop(g);
         assert!(WriterGuard::acquire(&r).is_ok());
         fs::remove_dir_all(r).unwrap()

@@ -1,8 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { access, mkdtemp, readFile, rm } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { delimiter, join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dirname, '..')
 const dshRoot = join(root, 'dsh')
@@ -13,8 +13,8 @@ const runRoot = await mkdtemp(join(tmpdir(), 'dshd-m2-product-'))
 const startedAt = Date.now()
 const elapsed = () => `${String(Date.now() - startedAt).padStart(5, '0')}ms`
 
-function checked(program, args, cwd, label) {
-  const result = spawnSync(program, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' })
+function checked(program, args, cwd, label, env = process.env) {
+  const result = spawnSync(program, args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], shell: process.platform === 'win32' })
   if (result.status !== 0) {
     const detail = `${result.stdout ?? ''}\n${result.stderr ?? ''}`.trim().slice(-4000)
     throw new Error(`PRECONDITION_FAILED ${label} exit=${String(result.status)} ${detail}`)
@@ -22,10 +22,14 @@ function checked(program, args, cwd, label) {
 }
 
 async function ensureBuiltProducts() {
+  const toolBin = join(runRoot, 'corepack-bin')
+  await mkdir(toolBin, { recursive: true })
+  checked('corepack', ['enable', '--install-directory', toolBin], root, 'project-local pnpm shim')
+  const buildEnv = { ...process.env, PATH: `${toolBin}${delimiter}${process.env.PATH ?? ''}` }
   console.log(`${elapsed()} PREPARE frozen_install=corepack-pnpm frozen_lock=true`)
-  checked('corepack', ['pnpm', 'install', '--frozen-lockfile'], dshRoot, 'frozen dependency install')
+  checked('corepack', ['pnpm', 'install', '--frozen-lockfile'], dshRoot, 'frozen dependency install', buildEnv)
   console.log(`${elapsed()} PREPARE cli_build=pnpm-build`)
-  checked('corepack', ['pnpm', 'build'], dshRoot, 'frozen CLI build')
+  checked('corepack', ['pnpm', 'build'], dshRoot, 'frozen CLI build', buildEnv)
   try {
     await access(cli)
   } catch (error) {
