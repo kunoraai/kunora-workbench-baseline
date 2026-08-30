@@ -170,7 +170,10 @@ if (mode === 'structural') {
   ok('exit-ac01-07', ['AC-01','AC-02','AC-03','AC-04','AC-05','AC-06','AC-07'].every((a) => exitRec.includes(a)));
   ok('exit-vm', ['VM-01','VM-02','VM-03','VM-04','VM-05','VM-06'].every((v) => exitRec.includes(v)));
   // secret 扫描：提交文件内不得出现真实形态的 launch token/cookie（报告/日志/JSON/JUnit）
-  const allText = git('grep', '-I', '-l', '--', '-e', '?token=[A-Za-z0-9_-]\{16,\}', '-e', 'launch[-_]token[=:][A-Za-z0-9_-]\{16,\}', '--', ':!tools/fake-harness', ':!crates/dshd-contract/tests', ':!crates/dshd-adapters/tests');
+  let allText = '';
+  try {
+    allText = git('grep', '-I', '-l', '-e', '?token=[A-Za-z0-9_-]\{16,\}', '-e', 'launch[-_]token[=:][A-Za-z0-9_-]\{16,\}', '--', ':!tools/fake-harness', ':!crates/dshd-contract/tests', ':!crates/dshd-adapters/tests');
+  } catch (e) { allText = String(e.stdout || e.message); }
   ok('secret-scan', allText === '', `plaintext secret pattern found in: ${allText}`);
 } else {
   console.log(`RESULT=FAIL REASON=unknown-mode ${mode}`); process.exit(1);
