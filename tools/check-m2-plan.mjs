@@ -17,9 +17,9 @@ const ok = (name, cond, detail = '') => { if (!cond) failures.push(detail ? `${n
 function git(...rest) { return execFileSync('git', rest, { encoding: 'utf8' }).trim(); }
 function blobSha(rev, path) { return createHash('sha256').update(execFileSync('git', ['show', `${rev}:${path}`])).digest('hex'); }
 
+const baseline = argOf('--baseline');
+const six = argOf('--six');
 if (mode === 'structural') {
-  const baseline = argOf('--baseline');
-  const six = argOf('--six');
   const status = git('status', '--porcelain').split('\n').filter(Boolean);
   ok('worktree-clean', status.every((l) => l === '?? PROMPT.md'), `status=[${status.join(' | ')}]`);
   const authors = git('log', `${baseline}..HEAD`, '--format=%an <%ae>').split('\n').filter(Boolean);
