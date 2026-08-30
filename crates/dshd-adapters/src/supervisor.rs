@@ -92,7 +92,10 @@ impl Supervisor {
                     let _ = feedback.send(Event::BackoffElapsed(attempt));
                 });
             }
-            Effect::Stop(attempt) => self.stop(attempt, feedback),
+            Effect::Stop(attempt) => {
+                let supervisor = self.clone();
+                thread::spawn(move || supervisor.stop(attempt, feedback));
+            }
             Effect::PersistDesired(_) | Effect::PublishContext(_) | Effect::DropContext => {}
         }
     }
@@ -234,8 +237,7 @@ impl Supervisor {
             .expect("children poisoned")
             .remove(&attempt)
         {
-            let mut child = managed.child.lock().expect("child poisoned");
-            let pid = child.id();
+            let pid = managed.child.lock().expect("child poisoned").id();
             println!(
                 "{{\"component\":\"dshd\",\"effect\":\"Stop\",\"attempt\":{},\"phase\":\"graceful-terminate\",\"stop_timeout_ms\":{}}}",
                 attempt.0,
@@ -248,19 +250,27 @@ impl Supervisor {
                 .stdin(Stdio::null())
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
-                .spawn();
+                .status();
             #[cfg(unix)]
             let _ = Command::new("kill")
                 .args(["-TERM", &format!("-{pid}")])
                 .status();
             while Instant::now() < deadline {
-                match child.try_wait() {
+                match managed.child.lock().expect("child poisoned").try_wait() {
                     Ok(Some(_)) => break,
                     Ok(None) => thread::sleep(Duration::from_millis(20)),
                     Err(_) => break,
                 }
             }
-            if child.try_wait().ok().flatten().is_none() {
+            if managed
+                .child
+                .lock()
+                .expect("child poisoned")
+                .try_wait()
+                .ok()
+                .flatten()
+                .is_none()
+            {
                 println!(
                     "{{\"component\":\"dshd\",\"effect\":\"Stop\",\"attempt\":{},\"phase\":\"timeout-force-kill\"}}",
                     attempt.0
@@ -271,14 +281,14 @@ impl Supervisor {
                     .stdin(Stdio::null())
                     .stdout(Stdio::null())
                     .stderr(Stdio::null())
-                    .spawn();
+                    .status();
                 #[cfg(unix)]
                 let _ = Command::new("kill")
                     .args(["-KILL", &format!("-{pid}")])
                     .status();
-                let _ = child.kill();
+                let _ = managed.child.lock().expect("child poisoned").kill();
             }
-            let _ = child.wait();
+            let _ = managed.child.lock().expect("child poisoned").wait();
         }
         let _ = feedback.send(Event::Stopped(attempt));
     }
