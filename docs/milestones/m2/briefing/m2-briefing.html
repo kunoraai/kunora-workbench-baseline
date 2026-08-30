@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>dshd 后端｜M2 进程与认证里程碑交付简报</title>
+  <style>
+    :root{--ink:#172033;--muted:#5e687a;--line:#d9dfeb;--paper:#fff;--wash:#f3f6fb;--navy:#18345b;--blue:#2563a6;--green:#19734b;--green-bg:#eaf7f0;--amber:#915f00;--amber-bg:#fff5d9;--red:#9c2f2f;--red-bg:#fff0ef}
+    *{box-sizing:border-box}html{background:#e9edf4;color:var(--ink);font-family:"Microsoft YaHei UI","Noto Sans CJK SC",system-ui,sans-serif;line-height:1.65}body{margin:0}.page{width:min(1180px,calc(100% - 32px));margin:28px auto;background:var(--paper);box-shadow:0 12px 36px #1b2b4320}.hero{padding:54px 58px 44px;background:linear-gradient(135deg,#142b4d,#285589);color:#fff}.eyebrow{font-size:13px;letter-spacing:.14em;text-transform:uppercase;opacity:.75}.hero h1{font-size:38px;line-height:1.18;margin:12px 0 8px}.hero .sub{font-size:20px;opacity:.9}.meta{display:flex;gap:14px;flex-wrap:wrap;margin-top:28px}.chip{border:1px solid #ffffff55;border-radius:999px;padding:6px 12px;font-size:13px}.badge{background:#ffd779;color:#4d3300;border:0;font-weight:800}.condition{margin-top:18px;padding:13px 16px;border-left:4px solid #ffd779;background:#ffffff12}.content{padding:36px 58px 58px}section{margin:0 0 46px}h2{font-size:25px;color:var(--navy);margin:0 0 16px;padding-bottom:9px;border-bottom:2px solid var(--line)}h3{font-size:18px;color:var(--navy);margin:24px 0 10px}p{margin:8px 0 13px}.lead{font-size:17px;color:#34435a}.callout{padding:18px 20px;margin:18px 0;background:var(--wash);border-left:4px solid var(--blue)}blockquote{margin:14px 0;padding:18px 22px;background:#edf4fc;border-left:5px solid var(--blue);font-size:18px;font-weight:700;color:var(--navy)}table{width:100%;border-collapse:collapse;margin:14px 0 22px;font-size:14px}th,td{text-align:left;vertical-align:top;border:1px solid var(--line);padding:10px 11px}th{background:#eef2f8;color:var(--navy)}tr:nth-child(even) td{background:#fafbfd}.status{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:800;white-space:nowrap}.pass{background:var(--green-bg);color:var(--green)}.blocked{background:var(--amber-bg);color:var(--amber)}.fail{background:var(--red-bg);color:var(--red)}code{font-family:Consolas,"SFMono-Regular",monospace;font-size:.92em;background:#edf1f6;border-radius:4px;padding:1px 5px;overflow-wrap:anywhere}.timeline{border-left:3px solid #b8c9df;margin:18px 0 0 10px;padding-left:25px}.event{position:relative;margin:0 0 24px}.event:before{content:"";position:absolute;width:13px;height:13px;border-radius:50%;left:-33px;top:7px;background:var(--blue);border:3px solid #fff;box-shadow:0 0 0 2px var(--blue)}.event h3{margin:0 0 5px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.card{border:1px solid var(--line);border-radius:8px;padding:16px;background:#fff}.card h3{margin-top:0}.kpi{font-size:25px;font-weight:800;color:var(--navy)}ul,ol{padding-left:22px}li{margin:5px 0}.small{font-size:13px;color:var(--muted)}.footer{padding:24px 58px;background:#142b4d;color:#dce8f7;font-size:13px}@media(max-width:760px){.page{width:100%;margin:0}.hero,.content,.footer{padding-left:22px;padding-right:22px}.hero h1{font-size:30px}.grid{grid-template-columns:1fr}table{display:block;overflow-x:auto;white-space:normal}}
+  </style>
+</head>
+<body>
+<main class="page">
+  <header class="hero">
+    <div class="eyebrow">Milestone Delivery Briefing · dshd Backend</div>
+    <h1>M2「进程与认证」里程碑交付简报</h1>
+    <div class="sub">从持久 desired state 到真实 Harness 的可恢复、可认证、可审计产品链</div>
+    <div class="meta">
+      <span class="chip">项目：dshd 后端</span><span class="chip">里程碑：M2 进程与认证</span><span class="chip">日期：2026-08-30</span><span class="chip badge">结论：有条件通过</span>
+    </div>
+    <div class="condition"><strong>唯一条件：</strong>GitHub Actions 账户计费／runner 外部阻断仍未解除，因此 AC-01、VM-01 保持 <code>BLOCKED-EXTERNAL</code>。本地全绿证据不冒充远端单次 CI 全绿。</div>
+  </header>
+
+  <div class="content">
+    <section id="summary">
+      <h2>执行摘要</h2>
+      <p class="lead">M2 已完成六要素冻结、总体方案与详细计划、五轮实现迭代和三轮独立验收。R3 在原生 Windows、临时 venv、新 detached worktree 以及隔离 HOME／状态目录中复跑后，确认产品能力、交付物符合度、代码评审和真实测试四个维度均通过；唯一未闭合项是仓库账户侧的 GitHub Actions 计费／runner 外阻。</p>
+      <blockquote>出口门禁原文：“dshd 能可靠管理并连接真实 Harness；相关 runner 场景可执行”。</blockquote>
+      <p>本里程碑的“可靠管理”包含单写、持久 desired、generation、崩溃恢复与有界关闭；“连接”包含 exact authority、cookie exchange 和真实 probe；“可执行”要求 runner 的 driver 真正运行并断言，而不是仅在清单中声明。R3 两轮真实链与 runner 的诚实计数已经重现这些事实。结论因此是“有条件通过”，不是把外部阻断改写为 PASS，也不是将 66 个 declared 向量全部宣称为已执行。</p>
+    </section>
+
+    <section id="goals">
+      <h2>里程碑目标达成总览</h2>
+      <h3>验收标准 AC-01～AC-07</h3>
+      <table>
+        <thead><tr><th>门禁</th><th>状态</th><th>R3 事实与证据指引</th></tr></thead>
+        <tbody>
+          <tr><td>AC-01 干净 CI 单次全绿</td><td><span class="status blocked">BLOCKED-EXTERNAL</span></td><td>本地 check/test/clippy/fmt、R5 drift/selftests 与 validator 全绿；但无同一 commit 的 GitHub Actions run/artifact。原因是账户计费／runner 外阻，见 <code>reviews/acceptance-r3.md</code> 与 <code>exit-record.md</code>。</td></tr>
+          <tr><td>AC-02 单写实证</td><td><span class="status pass">PASS</span></td><td>CF-01 双进程：owner PID 15016 持 OS 锁并启动 child PID 14824 至 READY；competitor PID 16800 仅输出 <code>WRITER_GUARD_HELD</code>，无 Spawn/Ready 副作用。见 T04、T17 与 R3。</td></tr>
+          <tr><td>AC-03 真实 Harness 接入</td><td><span class="status pass">PASS</span></td><td>两轮新检出产品链 PID 14204→17244、18456→6548，均完成 generation 1→2、exchange=303、probe=HTTP_200、崩溃恢复与最终 STOPPED。见 R3 §7、T14。</td></tr>
+          <tr><td>AC-04 状态与停止收敛</td><td><span class="status pass">PASS</span></td><td>typed shutdown 两轮由 STOPPING sequence 10 收敛至 STOPPED sequence 12；三轮 hold deadline 最大 sequence=7；重复 shutdown 不产生第二个 Stop effect。见 T08、T17。</td></tr>
+          <tr><td>AC-05 认证引导</td><td><span class="status pass">PASS</span></td><td>只接受 <code>127.0.0.1:&lt;dynamic&gt;</code> exact authority；exchange=303 后 probe=HTTP_200 才发布 READY；token/cookie 均 REDACTED 且不落盘。</td></tr>
+          <tr><td>AC-06 identity fail-closed</td><td><span class="status pass">PASS</span></td><td>config/identity 正反测试与装配顺序通过；无效输入在 guard/supervisor 之前失败，不打开产品副作用路径。</td></tr>
+          <tr><td>AC-07 runner 诚实计数</td><td><span class="status pass">PASS</span></td><td><code>declared=66 executed=4 passed=4 failed=0 driver=m2-local</code>；仅 ID-01、ID-02、CF-01、ST-06 提升为真实执行。</td></tr>
+        </tbody>
+      </table>
+      <h3>验收方法 VM-01～VM-06</h3>
+      <table>
+        <thead><tr><th>方法</th><th>状态</th><th>判定摘要</th></tr></thead>
+        <tbody>
+          <tr><td>VM-01 远端 CI</td><td><span class="status blocked">BLOCKED-EXTERNAL</span></td><td>缺少同一 commit 的远端 GitHub Actions 单次运行和 artifact；本地证据仅为补充。</td></tr>
+          <tr><td>VM-02 双进程单写</td><td><span class="status pass">PASS</span></td><td>owner 有真实 child/READY；competitor 无副作用且得到规定错误；owner 退出后锁与树收敛。</td></tr>
+          <tr><td>VM-03 真实 Harness 时间线</td><td><span class="status pass">PASS</span></td><td>两次新 detached worktree 均从 frozen install/build 与 bin.js digest 门开始，完整重现两代 PID、认证、probe、恢复、停止。</td></tr>
+          <tr><td>VM-04 runner 核对</td><td><span class="status pass">PASS</span></td><td>JSON/JUnit/人读口径由 manifest 动态计算；总声明 66、真实执行 4。</td></tr>
+          <tr><td>VM-05 反例与竞态</td><td><span class="status pass">PASS</span></td><td>原子 replace、OS lock、late/duplicate/out-of-order、双停止顺序、snapshot、三轮 ignore-termination 均覆盖。</td></tr>
+          <tr><td>VM-06 出口签核</td><td><span class="status pass">PASS</span></td><td>产品链和 runner 已重现出口原文要求；只保留 VM-01 的外部条件，不扩大 M2 范围。</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="deliverables">
+      <h2>交付物清单与验收状态</h2>
+      <table>
+        <thead><tr><th>编号</th><th>交付物与位置</th><th>验收方式</th><th>状态</th></tr></thead>
+        <tbody>
+          <tr><td>D1</td><td>配置与身份真实化：<code>crates/dshd-core/src/config.rs</code>、<code>identity.rs</code>，以及 adapters 文件层和 dshd 装配。</td><td>ID-01/02 正反例、create-if-absent、mismatch、非法输入副作用前 fail-closed。</td><td><span class="status pass">PASS</span></td></tr>
+          <tr><td>D2</td><td>原子状态与单写基础：<code>crates/dshd-adapters/src/files.rs</code> 的 AtomicFile、WriterGuard。</td><td>同目录原子 replacement 的 old-or-new 测试；fs4 OS 锁的 owner/competitor/successor 黑盒验证。</td><td><span class="status pass">PASS</span></td></tr>
+          <tr><td>D3</td><td>状态协调器：<code>crates/dshd-core/src/state.rs</code>、<code>crates/dshd-adapters/src/coordinator.rs</code>。</td><td>单 reducer、typed Event/Effect、优先级、late/duplicate/out-of-order、不可变 snapshot subscription。</td><td><span class="status pass">PASS</span></td></tr>
+          <tr><td>D4</td><td>Supervisor/reconcile：<code>crates/dshd-adapters/src/supervisor.rs</code>。</td><td>spawn、child monitor、1/2/4…30 秒退避、generation N+1、graceful→8s→force、无孤儿收敛。</td><td><span class="status pass">PASS</span></td></tr>
+          <tr><td>D5</td><td>认证引导：ready URL、launch-token→cookie exchange、authority-bound probe、connection context。</td><td>localhost 负例、exact authority、真实 exchange=303/probe=HTTP_200、probe 后才 READY、secret 脱敏。</td><td><span class="status pass">PASS</span></td></tr>
+          <tr><td>D6</td><td>冻结真实 Harness 接入：<code>scripts/run-m2-real-harness.mjs</code> 与 dshd 产品装配。</td><td>新检出 frozen install/build、bin.js SHA-256 门、两代 PID/generation、crash/backoff、停止时间线。</td><td><span class="status pass">PASS</span></td></tr>
+          <tr><td>D7</td><td>fake Harness 与 reference stub：<code>tools/fake-harness</code>、<code>tools/reference-stub</code>。</td><td>连续自检；八类确定性 fixture；stub <code>route_probe=13/13</code> 且 <code>behavior=NOT_IMPLEMENTED</code>，不冒充 M6。</td><td><span class="status pass">PASS</span></td></tr>
+          <tr><td>D8</td><td>66-vector runner：<code>tools/conformance-runner</code> 及 vectors manifest。</td><td>动态报告 <code>declared=66</code>、<code>executed=4</code>；损坏 ID 负向门非零；unit 不冒充 executed。</td><td><span class="status pass">PASS</span></td></tr>
+          <tr><td>D9</td><td>能力报告、CI 与出口证据：<code>tools/capability-report</code>、M2 reports/reviews、<code>exit-record.md</code>。</td><td>本地七模式、原生 venv validator、R3 独立复跑与证据索引一致。远端 CI artifact 单列为外部条件。</td><td><span class="status pass">PASS（本地口径）</span></td></tr>
+        </tbody>
+      </table>
+      <p class="small">D1～D9 的 PASS 表示其产品或本地验收完成定义已由 R3 重现；它不改变 AC-01/VM-01 的 BLOCKED-EXTERNAL 状态。</p>
+    </section>
+
+    <section id="history">
+      <h2>实现与迭代史</h2>
+      <div class="timeline">
+        <article class="event"><h3>迭代 1：主体能力落地｜<code>7e031eb</code></h3><p>在 M1 骨架上首次真实化 config、identity、state、supervisor、harness 与验收工具。这里必须与 M1 遗留提交 <code>faeab2f</code> 区分：M2 相关实现以 <code>7e031eb</code> 起算。R1 独立验收结论为<strong>未通过独立验收</strong>，形成 F01～F07：真实入口不可重复构建、delete-rename 窗口、哨兵锁、CI 口径、直杀式停止、reducer/snapshot 覆盖不足，以及错误的环境归因。</p></article>
+        <article class="event"><h3>迭代 2：真实链准备与 fixture 稳定｜<code>224921981</code></h3><p>冻结 lock 安装与真实 Harness 诊断链被跑通，fake/stub 对 Windows 瞬时 I/O、部分响应和 16 KiB 上限补强。但当时 dshd main 尚未装配 supervisor/effect executor，所以诊断 driver 不得冒充产品自动恢复；这一诚实边界写入 iteration-r2-fixes。</p></article>
+        <article class="event"><h3>迭代 3：产品装配闭环｜<code>1270feb4</code></h3><p>main 按 config→identity→desired→guard→coordinator→supervisor 装配，effect executor 通过反馈通道驱动 Spawn、Bootstrap、Backoff、Stop；修复 stdin 竞争、ready 分片、header 大小写和真实 settings probe。产品链开始真实到达 generation 1→2 与 STOPPED。</p></article>
+        <article class="event"><h3>迭代 4：R1 七项发现结构化修复｜<code>2f03dbe</code> / <code>2f3a05f</code></h3><p>不可重复构建改为 frozen install/build，并增加 <code>dsh/apps/cli/lib/bin.js</code> digest 门；delete-rename 改为平台原子替换；create_new 哨兵文件改为 fs4 持有的 OS 内核锁；AC-01/VM-01 改为 BLOCKED-EXTERNAL；停止从直接 kill 演进为 graceful→8s→force 树停止；reducer 优先级与 immutable snapshot 补齐。R2 随后仍因 F08 文档断链、F09 shutdown 卡在 STOPPING 而未通过。</p></article>
+        <article class="event"><h3>迭代 5：停止竞态与证据闭环｜<code>cadb8e0</code> / <code>8e1c501</code></h3><p>Stop effect 移至独立线程，child monitor 与 stop worker 可并发；typed stop、hold deadline、OS termination 统一为 <code>Event::Shutdown</code>；补 child-gone-before-stop-event、stop-event-before-child-gone 和 duplicate-shutdown 双序确定性测试。调用方以 v1.1 修复 13 个断链，并在原生 Windows Python 3.12 venv 验证 10 paths、42 schemas、174 links、66 declared、0 executed，纠正 R1 的 Cygwin wheel 归因。</p></article>
+        <article class="event"><h3>第三轮独立验收｜<code>ceb64b5</code></h3><p>R3 重跑两轮干净产品链、三轮 ignore-termination、CF-01、runner 和原生 validator，确认 F01～F09 均已闭合且无新增 F10。最终结论为<strong>有条件通过</strong>；唯一条件仍是外部 GitHub Actions 计费／runner 阻断。</p></article>
+      </div>
+    </section>
+
+    <section id="testing">
+      <h2>真实测试证据摘要</h2>
+      <h3>七模式机械验收</h3>
+      <table>
+        <thead><tr><th>模式</th><th>覆盖重点</th><th>既有记录结论</th></tr></thead>
+        <tbody>
+          <tr><td><code>structural</code></td><td>目录、工作流、声明与冻结输入结构</td><td>PASS</td></tr>
+          <tr><td><code>cargo-check</code></td><td>workspace/all-targets/locked 编译检查</td><td>PASS</td></tr>
+          <tr><td><code>clippy</code></td><td>全 target，warnings 视为错误</td><td>PASS</td></tr>
+          <tr><td><code>cargo-test</code></td><td>core、adapters、contract、tools、doc tests</td><td>PASS</td></tr>
+          <tr><td><code>drift-real</code></td><td>生成物／契约漂移与损坏负向门</td><td>PASS，ZERO_DRIFT</td></tr>
+          <tr><td><code>selftests-real</code></td><td>fake/stub/runner 的真实自检与动态计数</td><td>PASS</td></tr>
+          <tr><td><code>m2-evidence</code></td><td>M2 报告、产品链和能力登记证据</td><td>PASS（本地）；远端 CI 条件另列</td></tr>
+        </tbody>
+      </table>
+      <div class="grid">
+        <div class="card"><h3>两轮干净产品链</h3><div class="kpi">2 × generation 1→2</div><p>PID 14204→17244 与 18456→6548。两代均 exchange=303、probe=HTTP_200；第一代 crash 后 1000ms backoff；停止执行 graceful→8s→force，最终 STOPPED。两轮使用相同 bin.js SHA-256 <code>dc23f6…3166</code>。</p></div>
+        <div class="card"><h3>停止竞态压力</h3><div class="kpi">3 × max sequence=7</div><p>三轮 hold/ignore-termination 均观察 READY→STOPPING→STOPPED、child_gone=true、daemon_exited=true；外层预算包含 15 秒 hold、8 秒 graceful 窗及退出余量，没有用评审强杀冒充有效样本。</p></div>
+        <div class="card"><h3>CF-01 双进程</h3><div class="kpi">owner 15016 / competitor 16800</div><p>owner 持 LockFileEx 对应 OS 锁、child 14824 达 READY；competitor 在 10 秒内退出，仅报告 WRITER_GUARD_HELD，无 Spawn/Ready；owner 关闭后树和 daemon 均消失。</p></div>
+        <div class="card"><h3>契约与 runner</h3><div class="kpi">66 declared / 4 executed</div><p>原生 venv validator：10 paths、42 schemas、179 local refs、174 links、66 declared、0 executed。runner：<code>declared=66 executed=4 passed=4 failed=0</code>。reference-stub 自检包含 <code>route_probe=13/13</code>。</p></div>
+      </div>
+      <p>这些数字分别回答“契约声明多少”“本地 driver 实际执行多少”“真实产品链是否可重复”三个问题，不能互相替换。尤其是 <code>executed=4</code> 不代表只存在四个向量，<code>declared=66</code> 也不代表 66 个行为均已通过。</p>
+    </section>
+
+    <section id="review">
+      <h2>代码评审摘要</h2>
+      <table>
+        <thead><tr><th>维度</th><th>R3 结论</th><th>关键判断</th></tr></thead>
+        <tbody>
+          <tr><td>阶段目标达成</td><td><span class="status pass">PASS（CI 条件保留）</span></td><td>真实 Harness 两代管理、认证、恢复和停止可重复；runner 场景真实可执行。外部 CI 不被掩盖。</td></tr>
+          <tr><td>交付物与计划符合度</td><td><span class="status pass">PASS</span></td><td>D1～D9 本地完成定义闭合；未越界实现 M3 管理面、M4/M5 代理或 M6 中央裁决。</td></tr>
+          <tr><td>代码评审</td><td><span class="status pass">PASS</span></td><td>reducer 是状态单事实源；typed Event/Effect 串行归约；immutable snapshot 不允许消费者反写；core 与 OS/网络 adapter 分层清晰。</td></tr>
+          <tr><td>真实测试复跑</td><td><span class="status pass">PASS</span></td><td>新检出、隔离状态、两轮产品链、三轮停止、双进程竞争和原生 validator 全部重现。</td></tr>
+        </tbody>
+      </table>
+      <p><strong>持久化与锁：</strong>AtomicFile 使用同目录原子提交，不再存在 delete-then-rename 缺文件窗口；WriterGuard 持有 fs4 File handle，Windows 映射 LockFileEx、Unix 映射 flock，锁文件存在本身不代表锁被占用。</p>
+      <p><strong>认证与秘密：</strong>ReadyUrl 只接受 loopback exact authority，真实 probe 成功后才发布 connection context；Secret 的 Debug 固定脱敏，launch token 和 cookie 不写入持久模型或报告。</p>
+      <p><strong>进程树所有权：</strong>按源码事实表述，Windows 当前使用 <code>CREATE_NEW_PROCESS_GROUP</code>、<code>taskkill /T</code>、8 秒后 <code>/F</code>，再以精确 Child handle kill/wait；Unix 使用独立 process group 与负 PGID TERM/KILL。当前实现<strong>没有</strong>虚构为 Windows job object。</p>
+    </section>
+
+    <section id="risks">
+      <h2>遗留事项与下一步</h2>
+      <ol>
+        <li><strong>关闭唯一验收条件。</strong>由账户所有者解除 GitHub Actions 计费／runner 外阻，在与 R3 对应的同一代码状态取得一次 build、lint、typecheck、unit、contract、real-harness、runner、secret 全绿 run 与 artifact。完成后将 AC-01、VM-01 从 BLOCKED-EXTERNAL 转正；预案已备，不用重写本地真实测试事实。</li>
+        <li><strong>后续维护强化。</strong>Windows job object 可作为更强的 descendant containment 方案；Node DEP0190 对应的 <code>shell: true</code> 参数调用可改成无 shell 的安全 argv。两者是维护项，不是本轮验收失败。</li>
+        <li><strong>进入 M3。</strong>管理面 start/stop/restart 与 operation/idempotency 应复用 M2 的 typed lifecycle port、immutable snapshot 和 connection context；不得绕过 coordinator 直接修改 observed state，也不得将四个 executed 场景扩写成 66 个行为已通过。</li>
+      </ol>
+      <div class="callout"><strong>范围边界继续有效：</strong>中央注册／心跳／lease 属 M6；管理 API 属 M3；HTTP/WS 透明代理属 M4/M5；跨 task single-attach 属部署层。M2 通过不证明这些后续能力已经交付。</div>
+    </section>
+
+    <section id="index">
+      <h2>工件索引与验收命令</h2>
+      <h3>关键提交</h3>
+      <table>
+        <thead><tr><th>提交</th><th>定位</th></tr></thead>
+        <tbody>
+          <tr><td><code>faeab2f</code></td><td>M1 遗留提交，仅用于边界辨识；不要混入 M2 实现起点。</td></tr>
+          <tr><td><code>7e031eb</code></td><td>M2 迭代 1 主体。</td></tr>
+          <tr><td><code>224921981</code></td><td>迭代 2 修复与真实链准备。</td></tr>
+          <tr><td><code>1270feb4</code></td><td>迭代 3 产品装配。</td></tr>
+          <tr><td><code>2f03dbe</code> / <code>2f3a05f</code></td><td>迭代 4：R1 F01～F07 修复及干净 T14 transcript。</td></tr>
+          <tr><td><code>cadb8e0</code> / <code>8e1c501</code></td><td>迭代 5：shutdown 双序收敛、F07/F08/F09 证据。</td></tr>
+          <tr><td><code>ceb64b5</code></td><td>R3 第三轮独立验收，有条件通过。</td></tr>
+        </tbody>
+      </table>
+      <h3>报告与评审</h3>
+      <ul>
+        <li>冻结与计划：<code>docs/milestones/m2/six-elements.md</code>、<code>overall-plan.md</code>、<code>detailed-plan.md</code></li>
+        <li>三轮评审：<code>docs/milestones/m2/reviews/acceptance-r1.md</code>、<code>acceptance-r2.md</code>、<code>acceptance-r3.md</code></li>
+        <li>核心报告：<code>reports/t01-audit.md</code>、<code>t04-writer-guard.md</code>、<code>t08-reconcile.md</code>、<code>t14-real-harness.md</code>、<code>t15-runner.md</code>、<code>t17-hardening.md</code></li>
+        <li>迭代修复：<code>reports/iteration-r2-fixes.md</code> 至 <code>iteration-r5-fixes.md</code></li>
+        <li>出口记录：<code>docs/milestones/m2/exit-record.md</code></li>
+      </ul>
+      <h3>验收命令一览</h3>
+      <ul>
+        <li><code>node tools/check-m2-impl-r5.mjs --mode structural</code></li>
+        <li><code>node tools/check-m2-impl-r5.mjs --mode cargo-check</code></li>
+        <li><code>node tools/check-m2-impl-r5.mjs --mode clippy</code></li>
+        <li><code>node tools/check-m2-impl-r5.mjs --mode cargo-test</code></li>
+        <li><code>node tools/check-m2-impl-r5.mjs --mode drift-real</code></li>
+        <li><code>node tools/check-m2-impl-r5.mjs --mode selftests-real</code></li>
+        <li><code>node tools/check-m2-impl-r5.mjs --mode m2-evidence</code></li>
+        <li><code>node scripts/run-m2-real-harness.mjs</code></li>
+        <li><code>cargo run --locked -p conformance-runner -- --self-test</code></li>
+        <li><code>python docs/contracts/validate_contracts.py</code>（原生 Python 3.12 临时 venv 与锁定依赖口径）</li>
+        <li><code>node tools/check-m2-brief-r1.mjs --baseline 71314a909bb418a1299b2dbda987b3231dcdb5a7</code></li>
+      </ul>
+    </section>
+  </div>
+  <footer class="footer">dshd 后端 · M2「进程与认证」· 交付简报 · 2026-08-30<br>证据原则：仓库内真实记录优先；外部阻断诚实标注；declared 与 executed 分离；不以本地结果冒充远端 CI。</footer>
+</main>
+</body>
+</html>
