@@ -1,0 +1,36 @@
+name: M2 process and authentication
+on: [push, pull_request]
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps: [{uses: actions/checkout@v4}, {run: cargo fmt --all -- --check}]
+  lint:
+    runs-on: ubuntu-latest
+    steps: [{uses: actions/checkout@v4}, {run: cargo clippy --workspace --all-targets --locked -- -D warnings}]
+  check:
+    runs-on: ubuntu-latest
+    steps: [{uses: actions/checkout@v4}, {run: cargo check --workspace --all-targets --locked}]
+  unit:
+    runs-on: ubuntu-latest
+    steps: [{uses: actions/checkout@v4}, {run: cargo test --workspace --locked}]
+  contract:
+    runs-on: ubuntu-latest
+    steps: [{uses: actions/checkout@v4}, {run: cargo run --locked -p contract-gen -- --check}]
+  fake-stub:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo run --locked -p fake-harness -- --self-test
+      - run: cargo run --locked -p reference-stub -- --self-test
+  real-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: corepack pnpm@11.7.0 install --frozen-lockfile --dir dsh
+      - run: cargo test --workspace --locked
+  runner:
+    runs-on: ubuntu-latest
+    steps: [{uses: actions/checkout@v4}, {run: cargo run --locked -p conformance-runner -- --self-test}]
+  secret:
+    runs-on: ubuntu-latest
+    steps: [{uses: actions/checkout@v4}, {run: git grep -I -n -E 'token=[A-Za-z0-9_-]{16,}|Set-Cookie:' -- ':!dsh' && exit 1 || exit 0}]

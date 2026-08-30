@@ -1,9 +1,9 @@
 id,group,spec_ref,owner,driver,status,evidence
-ID-01,ID,central-dshd-conformance.md/ID,M1,id-01-driver,DECLARED,
-ID-02,ID,central-dshd-conformance.md/ID,M1,id-02-driver,DECLARED,
+ID-01,ID,central-dshd-conformance.md/ID,M2,id-01-driver,EXECUTABLE,m2-local
+ID-02,ID,central-dshd-conformance.md/ID,M2,id-02-driver,EXECUTABLE,m2-local
 ID-03,ID,central-dshd-conformance.md/ID,M1,id-03-driver,DECLARED,
 ID-04,ID,central-dshd-conformance.md/ID,M1,id-04-driver,DECLARED,
-CF-01,CF,central-dshd-conformance.md/CF,M1,cf-01-driver,DECLARED,
+CF-01,CF,central-dshd-conformance.md/CF,M2,cf-01-driver,EXECUTABLE,m2-local
 CF-02,CF,central-dshd-conformance.md/CF,M1,cf-02-driver,DECLARED,
 CF-03,CF,central-dshd-conformance.md/CF,M1,cf-03-driver,DECLARED,
 CF-04,CF,central-dshd-conformance.md/CF,M1,cf-04-driver,DECLARED,
@@ -12,7 +12,7 @@ ST-02,ST,central-dshd-conformance.md/ST,M1,st-02-driver,DECLARED,
 ST-03,ST,central-dshd-conformance.md/ST,M1,st-03-driver,DECLARED,
 ST-04,ST,central-dshd-conformance.md/ST,M1,st-04-driver,DECLARED,
 ST-05,ST,central-dshd-conformance.md/ST,M1,st-05-driver,DECLARED,
-ST-06,ST,central-dshd-conformance.md/ST,M1,st-06-driver,DECLARED,
+ST-06,ST,central-dshd-conformance.md/ST,M2,st-06-driver,EXECUTABLE,m2-local
 ST-07,ST,central-dshd-conformance.md/ST,M1,st-07-driver,DECLARED,
 ST-08,ST,central-dshd-conformance.md/ST,M1,st-08-driver,DECLARED,
 ST-09,ST,central-dshd-conformance.md/ST,M1,st-09-driver,DECLARED,

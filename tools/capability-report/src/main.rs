@@ -11,6 +11,18 @@ struct Capability {
     parity: String,
     status: String,
 }
+#[derive(Clone, Debug)]
+struct Evidence {
+    artifact: PathBuf,
+    digest: String,
+    environment: String,
+}
+fn validate_evidence(e: &Evidence) -> Result<(), String> {
+    if !e.artifact.exists() || e.digest.len() != 64 || e.environment.is_empty() {
+        return Err("capability evidence requires artifact, digest and environment".into());
+    }
+    Ok(())
+}
 fn default_inventory() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("inventory.csv")
 }
@@ -124,6 +136,15 @@ fn main() {
         })
         .count();
     if a.iter().any(|x| x == "--self-test") {
+        let missing = Evidence {
+            artifact: PathBuf::from("missing"),
+            digest: String::new(),
+            environment: String::new(),
+        };
+        if validate_evidence(&missing).is_ok() {
+            eprintln!("SELF_TEST=FAIL empty evidence accepted");
+            std::process::exit(1);
+        }
         println!(
             "SELF_TEST=PASS inventory={} capabilities=34 covered={covered} parity_evidence=0",
             p.display()
