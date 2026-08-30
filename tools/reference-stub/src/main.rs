@@ -109,6 +109,7 @@ fn transient(error: &io::Error) -> bool {
             | io::ErrorKind::ConnectionReset
             | io::ErrorKind::Interrupted
             | io::ErrorKind::TimedOut
+            | io::ErrorKind::UnexpectedEof
             | io::ErrorKind::WouldBlock
     ) || matches!(error.raw_os_error(), Some(10004 | 10053 | 10054 | 10061))
 }
@@ -318,5 +319,30 @@ fn main() {
             "NOT_IMPLEMENTED reference stub skeleton routes={}",
             ROUTES.len()
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn incomplete_response_is_transient() {
+        assert!(transient(&io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "partial response",
+        )));
+    }
+
+    #[test]
+    fn response_requires_declared_body() {
+        assert!(
+            !response_complete(b"HTTP/1.1 200 OK\r\nContent-Length: 15\r\n\r\nNOT_IMPLEMENTE")
+                .unwrap()
+        );
+        assert!(
+            response_complete(b"HTTP/1.1 200 OK\r\nContent-Length: 15\r\n\r\nNOT_IMPLEMENTED")
+                .unwrap()
+        );
     }
 }

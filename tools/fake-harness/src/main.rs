@@ -9,6 +9,7 @@ use std::{
 const MAX_ATTEMPTS: usize = 3;
 const RETRY_DELAY: Duration = Duration::from_millis(25);
 const IO_TIMEOUT: Duration = Duration::from_secs(2);
+const MAX_MESSAGE_BYTES: usize = 16 * 1024;
 
 fn transient(error: &io::Error) -> bool {
     matches!(
@@ -18,6 +19,7 @@ fn transient(error: &io::Error) -> bool {
             | io::ErrorKind::ConnectionReset
             | io::ErrorKind::Interrupted
             | io::ErrorKind::TimedOut
+            | io::ErrorKind::UnexpectedEof
             | io::ErrorKind::WouldBlock
     ) || matches!(error.raw_os_error(), Some(10004 | 10053 | 10054 | 10061))
 }
@@ -62,6 +64,12 @@ fn request_once(addr: SocketAddr, request: &str) -> io::Result<String> {
             ));
         }
         bytes.extend_from_slice(&chunk[..count]);
+        if bytes.len() > MAX_MESSAGE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "HTTP response exceeded self-test limit",
+            ));
+        }
     }
     String::from_utf8(bytes).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
@@ -82,15 +90,25 @@ fn request(addr: SocketAddr, request: &str) -> io::Result<String> {
 fn handle_connection(mut stream: TcpStream) -> io::Result<()> {
     stream.set_read_timeout(Some(IO_TIMEOUT))?;
     stream.set_write_timeout(Some(IO_TIMEOUT))?;
-    let mut bytes = [0; 2048];
-    let count = stream.read(&mut bytes)?;
-    if count == 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::UnexpectedEof,
-            "empty HTTP request",
-        ));
+    let mut bytes = Vec::new();
+    let mut chunk = [0; 2048];
+    while !bytes.windows(4).any(|window| window == b"\r\n\r\n") {
+        let count = stream.read(&mut chunk)?;
+        if count == 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::UnexpectedEof,
+                "connection closed before HTTP headers completed",
+            ));
+        }
+        bytes.extend_from_slice(&chunk[..count]);
+        if bytes.len() > MAX_MESSAGE_BYTES {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "HTTP request exceeded self-test limit",
+            ));
+        }
     }
-    let request = String::from_utf8_lossy(&bytes[..count]);
+    let request = String::from_utf8_lossy(&bytes);
     let authorized =
         request.contains("Host: 127.0.0.1:") && request.contains("Cookie: dshd=authority-bound");
     let response = if request.starts_with("POST /auth?token=launch-token ") {
@@ -189,5 +207,24 @@ fn main() {
             }
         }
         _ => println!("NOT_IMPLEMENTED fake Harness skeleton"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn incomplete_response_is_transient() {
+        assert!(transient(&io::Error::new(
+            io::ErrorKind::UnexpectedEof,
+            "partial response",
+        )));
+    }
+
+    #[test]
+    fn response_requires_declared_body() {
+        assert!(!message_complete(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nO").unwrap());
+        assert!(message_complete(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nOK").unwrap());
     }
 }
