@@ -1,0 +1,26 @@
+@import '@fontsource/manrope/latin-400.css';
+@import '@fontsource/manrope/latin-500.css';
+@import '@fontsource/manrope/latin-600.css';
+@import '@fontsource/manrope/latin-700.css';
+:root {
+  font-family: 'Manrope', 'MiSans', 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  color: #061a3a; background: #f8fbff; font-synthesis: none;
+  text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased;
+  --brand: #073b9f; --brand-hover: #052f80; --focus: #1677ff;
+  --canvas: #f8fbff; --raised: #fff; --ink: #061a3a;
+  /* Darker text variant of the brand's #687a96 for small-text contrast. */
+  --secondary: #344563; --muted: #61728d; --line: #dbe6f5;
+  --line-strong: #b8ccea; --selected: #eaf3ff; --success: #17815f; --danger: #b72d50;
+}
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+body { font-size: 14px; }
+button, input, select, textarea { font: inherit; }
+button, select { cursor: pointer; }
+button { color: inherit; touch-action: manipulation; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+button, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+svg { flex-shrink: 0; }
+::selection { background: #dbeaff; color: #061a3a; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
